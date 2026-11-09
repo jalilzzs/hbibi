@@ -2,12 +2,15 @@ const SEC=[['notes','💌','رسائل حب · Love notes',['t','b']],['voice','
 const FL={t:'العنوان · Title',b:'النص · Text',u:'رابط أو مسار الملف · URL / path'};
 const EMPTY={start_date:'2024-01-01',next_date:'',next_label:'موعدنا القادم'};SEC.forEach(s=>EMPTY[s[0]]=[]);
 let AC=null,tab='content',msg='',FILES=[],ups=[];
-const cloud=()=>!!CFG.SUPABASE_URL&&!/YOUR-/.test(CFG.SUPABASE_URL+CFG.SUPABASE_KEY),safe=n=>n.replace(/[^\w.\-]/g,'_');
+
+// تم تغيير اسم الدالة لتجنب التضارب (Duplicate variable)
+const isCloud=()=>!!CFG.SUPABASE_URL&&!/YOUR-/.test(CFG.SUPABASE_URL+CFG.SUPABASE_KEY);
+const safe=n=>n.replace(/[^\w.\-]/g,'_');
 
 // دالة الاتصال المباشر بـ Supabase REST API
 async function sbReq(path, method='GET', body=null){
   const K=CFG.SUPABASE_KEY, U=CFG.SUPABASE_URL;
-  if(!cloud()) throw new Error('Supabase not configured');
+  if(!isCloud()) throw new Error('Supabase not configured');
   const h={apikey:K,Authorization:'Bearer '+K,'Content-Type':'application/json',Prefer:'return=representation'};
   const r=await fetch(`${U}/rest/v1/${path}`,{method,headers:h,body:body?JSON.stringify(body):null});
   if(!r.ok) throw new Error(await r.text());
@@ -38,13 +41,13 @@ const r=await fetch(`${CFG.SUPABASE_URL}/storage/v1/object/${B}/${p}`,{method:'P
 const fld=(s,i,f,v,q)=>`<label><small class="l">${q&&f==='t'?'السؤال · Question':q&&f==='b'?'الصحيحة|خطأ|خطأ · correct|wrong|wrong':FL[f]}</small>${f==='b'?`<textarea rows="3" dir="auto" oninput="ed('${s}',${i},'b',this.value)">${esc(v)}</textarea>`:`<input dir="auto" value="${esc(v)}" oninput="ed('${s}',${i},'${f}',this.value)">`}</label>`+(f==='u'?`<input type="file" accept="audio/*,image/*" onchange="pick('${s}',${i},this.files[0])">`:'');
 const ed=(s,i,f,v)=>{AC[s][i][f]=v;},add=s=>{(AC[s]=AC[s]||[]).push({t:'',b:'',u:''});drawAdmin()},del=(s,i)=>{AC[s].splice(i,1);drawAdmin()};
 
-async function pick(s,i,f){if(!f)return;let u='';if(cloud()){try{u=await upload(f)}catch(e){msg='⚠️ Upload failed ('+String(e.message).slice(0,90)+')'}}
+async function pick(s,i,f){if(!f)return;let u='';if(isCloud()){try{u=await upload(f)}catch(e){msg='⚠️ Upload failed ('+String(e.message).slice(0,90)+')'}}
 if(!u){u='media/'+safe(f.name);}AC[s][i].u=u;drawAdmin()}
 async function upMany(fs){for(const f of fs){try{ups.unshift(await upload(f))}catch(e){msg='⚠️ '+String(e.message).slice(0,120)}}drawAdmin()}
 
 // حفظ البيانات أوتوماتيكياً في Supabase
 async function saveToCloud(){
-  if(!cloud()){msg='⚠️ Supabase غير مُعرّف في config.js';drawAdmin();return;}
+  if(!isCloud()){msg='⚠️ Supabase غير مُعرّف في config.js';drawAdmin();return;}
   try{
     msg='⏳ جاري الحفظ في السحاب...'; drawAdmin();
     
@@ -84,13 +87,12 @@ content:()=>`<div class="card"><h3>⚙️ عام · General</h3><label>معًا 
 <label>الموعد القادم · Next date<input type="date" value="${esc(AC.next_date)}" oninput="AC.next_date=this.value"></label><label>عنوان الموعد · Label<input dir="auto" value="${esc(AC.next_label)}" oninput="AC.next_label=this.value"></label></div>
 ${SEC.map(([k,ic,lb,fs])=>`<div class="card"><h3>${ic} ${lb} (${(AC[k]||[]).length})</h3>${(AC[k]||[]).map((x,i)=>`<div class="item">${fs.map(f=>fld(k,i,f,x[f]||'',k==='quiz')).join('')}<button onclick="del('${k}',${i})">🗑</button></div>`).join('')}<button class="gold" onclick="add('${k}')">➕</button></div>`).join('')}
 <div class="card center"><button class="gold" onclick="saveToCloud()">☁️ حفظ وإرسال إلى السحاب · Save to Cloud</button><p class="mut">${esc(msg)}</p><button onclick="initAdmin()">↺ إعادة تحميل · Refresh</button></div>`,
-media:()=>`<div class="card"><h3>🖼️ Supabase Storage: ${cloud()?'ON':'OFF'}</h3>${cloud()?`<input type="file" multiple accept="audio/*,image/*" onchange="upMany(this.files)"><p class="err">${esc(msg)}</p>`:'<p class="mut">Not configured.</p>'}
+media:()=>`<div class="card"><h3>🖼️ Supabase Storage: ${isCloud()?'ON':'OFF'}</h3>${isCloud()?`<input type="file" multiple accept="audio/*,image/*" onchange="upMany(this.files)"><p class="err">${esc(msg)}</p>`:'<p class="mut">Not configured.</p>'}
 ${ups.map(u=>`<div class="item"><small>${esc(u)}</small><button onclick="navigator.clipboard.writeText('${esc(u)}')">📋 Copy</button></div>`).join('')}</div>`,
 guide:()=>`<div class="card pre"><h3>📘 Cloud Sync Active</h3>1) Edit content freely in ✍️ Content.
 2) Click ☁️ <b>Save to Cloud</b>.
 3) Everything updates instantly on Ibtissam's screen automatically!</div>`};
 
-// دالة رسم واجهة الأدمن بشكل متزامن وسلس
 function drawAdmin(){
   document.documentElement.dir='rtl';
   if(!AC){
@@ -100,7 +102,6 @@ function drawAdmin(){
 <nav class="chips">${[['content','✍️ المحتوى · Content'],['media','🖼️ الوسائط · Media'],['guide','📘 الدليل · Guide']].map(([k,l])=>`<a class="chip ${tab===k?'on':''}" href="javascript:tab='${k}';drawAdmin()">${l}</a>`).join('')}</nav>${T[tab]()}</div>`;
 }
 
-// دالة تهيئة وتحميل بيانات الأدمن أولاً ثم عرض الواجهة
 async function initAdmin(){
   msg='⏳ جاري جلب البيانات من السحاب...';
   if(!AC){
@@ -109,3 +110,7 @@ async function initAdmin(){
   msg='';
   drawAdmin();
 }
+
+// ربط الدالة بالنافذة لكي تتعرف عليها main.js
+window.drawAdmin = drawAdmin;
+window.initAdmin = initAdmin;
