@@ -3,5 +3,5 @@ window.CFG={
 PRINCESS:{names:['ابتسام','إبتسام','Ibtissam'],pass:'080530'},
 ADMIN:{names:['جليل','Jalil'],pass:'jalil-2026'},
 /* OPTIONAL – only used to upload photos/audio to a Supabase Storage bucket. Leave empty to disable (then put files in /media). */
-SUPABASE_URL:'',SUPABASE_KEY:'',SUPABASE_BUCKET:'media'
+SUPABASE_URL:'https://gonhfbbzmnhnzjkvqomy.supabase.co',SUPABASE_KEY:'sb_publishable_eJdNQx-lWd6DfYkru9n56Q_bkRyAtsw',SUPABASE_BUCKET:'media'
 };
