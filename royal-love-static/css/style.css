@@ -1,0 +1,31 @@
+:root{--g:#f2c4b0;--r:#ff3d6e;--bg:#14030a;--gl:rgba(255,255,255,.07);--bd:rgba(242,196,176,.22);--t:#fff1ee;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;font-family:Tajawal,system-ui,sans-serif;color:var(--t);background:var(--bg);min-height:100vh}
+.aurora{position:fixed;inset:0;z-index:-1;background:radial-gradient(40% 40% at 15% 10%,#9b153f88,transparent),radial-gradient(35% 35% at 90% 30%,#ff3d6e44,transparent),radial-gradient(40% 40% at 50% 100%,#c9788a55,transparent);animation:av 12s ease-in-out infinite alternate}
+@keyframes av{to{filter:hue-rotate(-18deg) brightness(1.25);transform:scale(1.08)}}
+.wrap{max-width:900px;margin:auto;padding:14px}header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+h1,h2,h3{font-family:'Reem Kufi',Tajawal;color:var(--g);margin:.3em 0;text-shadow:0 0 18px #ff3d6e66}h1{font-size:1.4rem}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0;scrollbar-width:none}.chips a{white-space:nowrap}
+.chip,button,input,select,textarea{font:inherit;color:var(--t);background:var(--gl);border:1px solid var(--bd);border-radius:14px;padding:9px 14px;backdrop-filter:blur(10px);text-decoration:none}
+input,select,textarea{width:100%;margin:4px 0}button{cursor:pointer;transition:.2s}button:hover,.chip:hover{background:#ffffff1f;transform:translateY(-1px)}
+.chip.on,.gold{background:linear-gradient(135deg,#f2c4b0,#e0708f);color:#3a0614;font-weight:800;border:0}
+.card,.tile{background:var(--gl);border:1px solid var(--bd);border-radius:24px;padding:18px;backdrop-filter:blur(14px);margin:12px 0;animation:in .5s both;box-shadow:0 8px 40px #0006}
+@keyframes in{from{opacity:0;transform:translateY(14px) scale(.98)}}
+.bento{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}.bento .tile{margin:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:4px;color:var(--t);text-decoration:none;min-height:120px;transition:.25s}
+.tile:hover{transform:translateY(-4px);box-shadow:0 0 30px #ff3d6e66}.tile i{font-style:normal;font-size:2.2rem}.tile small{opacity:.7}
+.span2{grid-column:span 2}.hero{background:linear-gradient(135deg,#ff3d6e33,#f2c4b022);box-shadow:0 0 40px #ff3d6e44}.hero h2{font-size:2.6rem;margin:0}
+.accent{border-color:#f2c4b0aa;background:linear-gradient(160deg,#f2c4b022,#ff3d6e11)}
+.center{text-align:center}.mut{opacity:.65}.pre{white-space:pre-wrap;line-height:2;font-size:1.1rem}audio,img{width:100%;border-radius:16px}
+.big-card{font-size:1.4rem;line-height:1.9;padding:24px;border-radius:20px;background:linear-gradient(135deg,#ff3d6e22,#ffffff0a);border:1px solid var(--bd);text-align:center;margin:10px 0}
+.big-btn{font-size:3rem;padding:26px;border-radius:50%;width:110px;height:110px;margin:auto;display:grid;place-items:center}.big-btn.go{background:#2ecc71}
+.opt{display:block;width:100%;text-align:start;margin:6px 0}.res{text-align:center}.res h2{font-size:2.4rem}
+.grid2,.grid3,.grid4{display:grid;gap:8px;margin:10px 0}.grid2{grid-template-columns:repeat(2,1fr)}.grid3{grid-template-columns:repeat(3,1fr)}.grid4{grid-template-columns:repeat(4,1fr)}
+.cell{font-size:1.8rem;min-height:64px;padding:6px}.lit{background:#fff!important;transform:scale(1.1)}
+.arena{position:relative;height:260px;border:1px dashed var(--bd);border-radius:18px;margin-top:8px;overflow:hidden}.hrt{position:absolute;font-size:2.2rem;background:none;border:0;padding:0}
+.wheel{font-size:6rem;text-align:center;transition:transform 1.8s cubic-bezier(.2,.8,.2,1)}
+.babe{font-size:6rem;animation:fl 3s ease-in-out infinite alternate}@keyframes fl{to{transform:translateY(-12px)}}
+.bar{height:10px;background:#0006;border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,#f2c4b0,#ff3d6e)}
+.gate{display:grid;place-items:center;min-height:100vh;padding:14px;text-align:center}.gate .card{max-width:400px;width:100%}.err{color:#ff9aa8}.cam{width:100%;border-radius:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}label{display:block;margin-top:8px;opacity:.85}
+.pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}.pg img{aspect-ratio:1;object-fit:cover}
+footer{text-align:center;padding:20px 0;opacity:.85}footer a{margin:0 8px;color:var(--g)}
+.item{border:1px solid var(--bd);border-radius:16px;padding:10px;margin:8px 0;background:#0003}.item input,.item textarea{margin:3px 0}small.l{opacity:.7;display:block}

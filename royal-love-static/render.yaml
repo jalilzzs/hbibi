@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: royal-love
+    runtime: static
+    staticPublishPath: .
+    headers:
+      - path: /js/*
+        name: Cache-Control
+        value: no-cache
