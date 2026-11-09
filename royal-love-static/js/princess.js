@@ -1,8 +1,55 @@
-let lang=localStorage.lang||'ar',route='home',gid='',err='',gm='code';window.CUR='';let C={};const L=k=>C[k]||[];const activeContent=()=>{let d=null;if(sessionStorage.role==='admin'){try{d=JSON.parse(localStorage.getItem('draft'))}catch(e){}}return d||window.CONTENT||{}};
+let lang=localStorage.lang||'ar',route='home',gid='',err='',gm='code';window.CUR='';let C={};const L=k=>C[k]||[];
+
+// دالة جلب البيانات الحية أوتوماتيكياً من Supabase
+const cloud=()=>!!CFG.SUPABASE_URL&&!/YOUR-/.test(CFG.SUPABASE_URL+CFG.SUPABASE_KEY);
+async function sbFetch(path){
+  const K=CFG.SUPABASE_KEY, U=CFG.SUPABASE_URL;
+  if(!cloud()) return null;
+  const h={apikey:K,Authorization:'Bearer '+K};
+  const r=await fetch(`${U}/rest/v1/${path}`,{headers:h});
+  if(!r.ok) return null;
+  return await r.json();
+}
+
+async function loadPrincessContent(){
+  let data = { start_date: '2024-01-01', next_date: '', next_label: 'موعدنا القادم' };
+  const SEC_KEYS = ['notes','voice','songs','photos','phrases','poems','reasons','letters','quiz'];
+  SEC_KEYS.forEach(k => data[k] = []);
+
+  if(cloud()){
+    try {
+      const [settings, items] = await Promise.all([
+        sbFetch('site_settings?select=*'),
+        sbFetch('content_items?select=*')
+      ]);
+      if(settings && Array.isArray(settings)){
+        settings.forEach(s => data[s.key] = s.value);
+      }
+      if(items && Array.isArray(items)){
+        items.forEach(x => {
+          if(data[x.section]){
+            data[x.section].push({t: x.title||'', b: x.body||'', u: x.media_url||''});
+          }
+        });
+      }
+    } catch(e) {
+      console.error('Error loading from cloud, falling back to local', e);
+      let d = null;
+      try{ d = JSON.parse(localStorage.getItem('draft')) }catch(err){}
+      data = d || window.CONTENT || data;
+    }
+  } else {
+    let d = null;
+    try{ d = JSON.parse(localStorage.getItem('draft')) }catch(e){}
+    data = d || window.CONTENT || data;
+  }
+  return data;
+}
+
 const D={title:['عالم الأميرة إبتسام','Princess Ibtissam’s World'],gateT:['صاحبة الجلالة الأميرة إبتسام','Her Majesty Princess Ibtissam'],code:['🔑 الرمز','🔑 Code'],face:['📸 الوجه','📸 Face'],ph:['الرمز الملكي','Royal passcode'],enter:['دخول','Enter'],wrong:['رمز خاطئ','Wrong code'],exit:['خروج','Exit'],
 together:['معًا منذ','Together for'],days:['يوم','days'],points:['نقاط الحب','Love points'],empty:['لا شيء هنا بعد 💌','Nothing here yet 💌'],back:['← رجوع','← Back'],camMsg:['انظري إلى الكاميرا 👑','Look at the camera 👑'],
 home:['الرئيسية','Home'],notes:['رسائل حب','Love notes'],voice:['رسائل صوتية','Voice notes'],songs:['أغاني وكاريوكي','Songs'],photos:['الصور','Gallery'],phrases:['كلماتي','Catchphrases'],poems:['شعر','Poetry'],games:['ألعاب','Games'],baby:['البيبي','Baby'],
-reasons:['أسباب أحبك','Reasons I love you'],letters:['افتحي عندما…','Open when…'],countdown:['العد التنازلي','Countdown'],mood:['مزاجي اليوم','My mood'],another:['سبب آخر 💖','Another 💖'],moodAsk:['كيف تشعرين الآن؟','How do you feel?'],sent:['وصلت لحبيبك 💌','Sent to your love 💌'],noDate:['لم يُحدَّد موعد','No date set'],girl:['👧 بنت','👧 Girl'],boy:['👦 ولد','👦 Boy'],left:['يوم متبقٍ','days left'],admin:['🛡️ المشرف','🛡️ Admin'],cloud:['☁️ التقدم محفوظ','☁️ Progress saved'],loc:['💾 محفوظ على الجهاز فقط','💾 Saved on this device only']};
+reasons:['أسباب أحبك','Reasons I love you'],letters:['افتحي عندما…','Open when…'],countdown:['العد التنازلي','Countdown'],mood:['مزاجي اليوم','My mood'],another:['سبب آخر 💖','Another 💖'],moodAsk:['كيف تشعرين الآن؟','How do you feel?'],sent:['وصلت لحبيبك 💌','Sent to your love 💌'],noDate:['لم يُحدَّد موعد','No date set'],girl:['👧 بنت','👧 Girl'],boy:['👦 ولد','👦 Boy'],left:['يوم متبقٍ','days left'],admin:['🛡️ المشرف','🛡️ Admin'],cloud:['☁️ التقدم محفوظ والمحتوى مباشر','☁️ Live Cloud Sync'],loc:['💾 محفوظ محلياً','💾 Local mode']};
 const t=k=>D[k][lang==='ar'?0:1],ix=lang=>lang==='ar'?0:1;
 const NAV=[['home','🏠'],['notes','💌'],['voice','🎙️'],['songs','🎵'],['photos','📷'],['phrases','💬'],['poems','📜'],['games','🎮'],['baby','👶'],['reasons','💖'],['letters','✉️'],['countdown','⏳'],['mood','🥰']],SPECIAL=['reasons','letters','countdown','mood'];
 const start=()=>C.start_date||'2024-01-01',days=()=>Math.max(0,(Date.now()-new Date(start()))/864e5);
@@ -32,8 +79,17 @@ const B={reasons(){const r=L('reasons');$('rb').onclick=()=>{if(r.length)$('rs')
 Prog.onchange=()=>document.querySelectorAll('.pts').forEach(e=>e.textContent=Prog.d.love_points);
 function shell(body){return`<div class="wrap"><header><h1>👑 ${t('title')}</h1><div class="row"><button class="chip" onclick="setLang()">${lang==='ar'?'EN':'عربي'}</button><button class="chip" onclick="logout()">${t('exit')}</button></div></header>
 ${Prog.err?`<div class="card err" style="padding:8px;font-size:.85rem">⚠️ ${esc(Prog.err)}</div>`:''}<nav class="chips">${NAV.map(([k,i])=>`<a class="chip ${route===k?'on':''}" href="#/${k}">${i} ${t(k)}</a>`).join('')}</nav>${body}
-<footer>${sessionStorage.role==='admin'?`<a href="javascript:setView('admin')">${t('admin')}</a>`:''}<a href="#/home">🏠 ${t('home')}</a><a href="#/games">🎮 ${t('games')}</a><a href="#/notes">💌 ${t('notes')}</a><p class="mut">${t('loc')}</p></footer></div>`}
-function render(){TM.forEach(clearInterval);TM=[];C=activeContent();window.ACTIVE=C;document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';document.title=t('title');
-const[r,g]=location.hash.slice(2).split('/');route=r||'home';gid=g||'';if(route!=='games')window.CUR='';
-$('app').innerHTML=shell(V[route]?V[route]():V.home());B[route]&&B[route]();if(route==='home')iv(()=>{const c=$('clk');c&&(c.textContent=clk())},1000)}
-function setLang(){lang=lang==='ar'?'en':'ar';localStorage.lang=lang;boot()}
+<footer>${sessionStorage.role==='admin'?`<a href="javascript:setView('admin')">${t('admin')}</a>`:''}<a href="#/home">🏠 ${t('home')}</a><a href="#/games">🎮 ${t('games')}</a><a href="#/notes">💌 ${t('notes')}</a><p class="mut">${cloud()?t('cloud'):t('loc')}</p></footer></div>`}
+async function render(){
+  TM.forEach(clearInterval);TM=[];
+  C = await loadPrincessContent();
+  window.ACTIVE=C;
+  document.documentElement.lang=lang;
+  document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+  document.title=t('title');
+  const[r,g]=location.hash.slice(2).split('/');route=r||'home';gid=g||'';if(route!=='games')window.CUR='';
+  $('app').innerHTML=shell(V[route]?V[route]():V.home());
+  B[route]&&B[route]();
+  if(route==='home')iv(()=>{const c=$('clk');c&&(c.textContent=clk())},1000);
+}
+function setLang(){lang=lang==='ar'?'en':'ar';localStorage.lang=lang;render()}
