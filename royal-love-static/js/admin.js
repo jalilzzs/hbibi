@@ -42,13 +42,12 @@ async function pick(s,i,f){if(!f)return;let u='';if(cloud()){try{u=await upload(
 if(!u){u='media/'+safe(f.name);}AC[s][i].u=u;drawAdmin()}
 async function upMany(fs){for(const f of fs){try{ups.unshift(await upload(f))}catch(e){msg='⚠️ '+String(e.message).slice(0,120)}}drawAdmin()}
 
-// حفظ البيانات أوتوماتيكياً في Supabase (جداول content_items و site_settings)
+// حفظ البيانات أوتوماتيكياً في Supabase
 async function saveToCloud(){
   if(!cloud()){msg='⚠️ Supabase غير مُعرّف في config.js';drawAdmin();return;}
   try{
     msg='⏳ جاري الحفظ في السحاب...'; drawAdmin();
     
-    // 1. تحديث الإعدادات (site_settings)
     const settings = [
       {key:'start_date', value:AC.start_date||''},
       {key:'next_date', value:AC.next_date||''},
@@ -58,7 +57,6 @@ async function saveToCloud(){
       await sbReq(`site_settings?key=eq.${s.key}`,'PATCH',{value:s.value});
     }
 
-    // 2. تفريغ جدول المحتوى القديم وإعادة إدخال الجديد نظيفاً
     await sbReq('content_items?id=gt.0','DELETE');
     
     let bulkRows=[];
@@ -85,18 +83,29 @@ const T={
 content:()=>`<div class="card"><h3>⚙️ عام · General</h3><label>معًا منذ · Together since<input type="date" value="${esc(AC.start_date)}" oninput="AC.start_date=this.value"></label>
 <label>الموعد القادم · Next date<input type="date" value="${esc(AC.next_date)}" oninput="AC.next_date=this.value"></label><label>عنوان الموعد · Label<input dir="auto" value="${esc(AC.next_label)}" oninput="AC.next_label=this.value"></label></div>
 ${SEC.map(([k,ic,lb,fs])=>`<div class="card"><h3>${ic} ${lb} (${(AC[k]||[]).length})</h3>${(AC[k]||[]).map((x,i)=>`<div class="item">${fs.map(f=>fld(k,i,f,x[f]||'',k==='quiz')).join('')}<button onclick="del('${k}',${i})">🗑</button></div>`).join('')}<button class="gold" onclick="add('${k}')">➕</button></div>`).join('')}
-<div class="card center"><button class="gold" onclick="saveToCloud()">☁️ حفظ وإرسال إلى السحاب · Save to Cloud</button><p class="mut">${esc(msg)}</p><button onclick="drawAdmin()">↺ إعادة تحميل · Refresh</button></div>`,
+<div class="card center"><button class="gold" onclick="saveToCloud()">☁️ حفظ وإرسال إلى السحاب · Save to Cloud</button><p class="mut">${esc(msg)}</p><button onclick="initAdmin()">↺ إعادة تحميل · Refresh</button></div>`,
 media:()=>`<div class="card"><h3>🖼️ Supabase Storage: ${cloud()?'ON':'OFF'}</h3>${cloud()?`<input type="file" multiple accept="audio/*,image/*" onchange="upMany(this.files)"><p class="err">${esc(msg)}</p>`:'<p class="mut">Not configured.</p>'}
 ${ups.map(u=>`<div class="item"><small>${esc(u)}</small><button onclick="navigator.clipboard.writeText('${esc(u)}')">📋 Copy</button></div>`).join('')}</div>`,
 guide:()=>`<div class="card pre"><h3>📘 Cloud Sync Active</h3>1) Edit content freely in ✍️ Content.
 2) Click ☁️ <b>Save to Cloud</b>.
 3) Everything updates instantly on Ibtissam's screen automatically!</div>`};
 
-async function drawAdmin(){
+// دالة رسم واجهة الأدمن بشكل متزامن وسلس
+function drawAdmin(){
   document.documentElement.dir='rtl';
   if(!AC){
-    await loadFromDB();
+    AC = Object.assign({}, EMPTY, JSON.parse(JSON.stringify(window.CONTENT||{})));
   }
   $('app').innerHTML=`<div class="wrap"><header><h1>🛡️ جليل · Admin</h1><div class="row"><button class="chip" onclick="setView('princess')">👁 Preview</button><button class="chip" onclick="logout()">خروج · Exit</button></div></header>
 <nav class="chips">${[['content','✍️ المحتوى · Content'],['media','🖼️ الوسائط · Media'],['guide','📘 الدليل · Guide']].map(([k,l])=>`<a class="chip ${tab===k?'on':''}" href="javascript:tab='${k}';drawAdmin()">${l}</a>`).join('')}</nav>${T[tab]()}</div>`;
+}
+
+// دالة تهيئة وتحميل بيانات الأدمن أولاً ثم عرض الواجهة
+async function initAdmin(){
+  msg='⏳ جاري جلب البيانات من السحاب...';
+  if(!AC){
+    await loadFromDB();
+  }
+  msg='';
+  drawAdmin();
 }
