@@ -49,11 +49,11 @@ async function loadPrincessContent(){
 const D={title:['عالم الأميرة إبتسام','Princess Ibtissam’s World'],gateT:['صاحبة الجلالة الأميرة إبتسام','Her Majesty Princess Ibtissam'],code:['🔑 الرمز','🔑 Code'],face:['📸 الوجه','📸 Face'],ph:['الرمز الملكي','Royal passcode'],enter:['دخول','Enter'],wrong:['رمز خاطئ','Wrong code'],exit:['خروج','Exit'],
 together:['معًا منذ','Together for'],days:['يوم','days'],points:['نقاط الحب','Love points'],empty:['لا شيء هنا بعد 💌','Nothing here yet 💌'],back:['← رجوع','← Back'],camMsg:['انظري إلى الكاميرا 👑','Look at the camera 👑'],
 home:['الرئيسية','Home'],notes:['رسائل حب','Love notes'],voice:['رسائل صوتية','Voice notes'],songs:['أغاني وكاريوكي','Songs'],photos:['الصور','Gallery'],phrases:['كلماتي','Catchphrases'],poems:['شعر','Poetry'],games:['ألعاب','Games'],baby:['البيبي','Baby'],
-reasons:['أسباب أحبك','Reasons I love you'],letters:['افتحي عندما…','Open when…'],countdown:['العد التنازلي','Countdown'],mood:['مزاجي اليوم','My mood'],another:['سبب آخر 💖','Another 💖'],moodAsk:['كيف تشعرين الآن؟','How do you feel?'],sent:['وصلت لحبيبك 💌','Sent to your love 💌'],noDate:['لم يُحدَّد موعد','No date set'],girl:['👧 بنت','👧 Girl'],boy:['👦 ولد','👦 Boy'],left:['يوم متبقٍ','days left'],admin:['🛡️ المشرف','🛡️ Admin'],cloud:['☁️ التقدم محفوظ والمحتوى مباشر','☁️ Live Cloud Sync'],loc:['💾 محفوظ محلياً','💾 Local mode'],chat:['💬 الشات المباشر','💬 Live Chat']};
+reasons:['أسباب أحبك','Reasons I love you'],letters:['افتحي عندما…','Open when…'],countdown:['العد التنازلي','Countdown'],mood:['مزاجي اليوم','My mood'],another:['سبب آخر 💖','Another 💖'],moodAsk:['كيف تشعرين الآن؟','How do you feel?'],sent:['وصلت لحبيبك 💌','Sent to your love 💌'],noDate:['لم يُحدَّد موعد','No date set'],girl:['👧 بنت','👧 Girl'],boy:['👦 ولد','👦 Boy'],left:['يوم متبقٍ','days left'],admin:['🛡️ المشرف','🛡️ Admin'],cloud:['☁️ التقدم محفوظ والمحتوى مباشر','☁️ Live Cloud Sync'],loc:['💾 محفوظ محلياً','💾 Local mode'],chat:['💬 الشات المباشر','💬 Live Chat'],leaderboard:['🏆 لوحة الشرف والتحدي','🏆 Leaderboard']};
 
 const t=k=>D[k][lang==='ar'?0:1],ix=lang=>lang==='ar'?0:1;
-const NAV=[['home','🏠'],['notes','💌'],['voice','🎙️'],['songs','🎵'],['photos','📷'],['phrases','💬'],['poems','📜'],['games','🎮'],['baby','👶'],['reasons','💖'],['letters','✉️'],['countdown','⏳'],['mood','🥰'],['chat','💬']];
-const SPECIAL=['reasons','letters','countdown','mood','chat'];
+const NAV=[['home','🏠'],['notes','💌'],['voice','🎙️'],['songs','🎵'],['photos','📷'],['phrases','💬'],['poems','📜'],['games','🎮'],['baby','👶'],['reasons','💖'],['letters','✉️'],['countdown','⏳'],['mood','🥰'],['chat','💬'],['leaderboard','🏆']];
+const SPECIAL=['reasons','letters','countdown','mood','chat','leaderboard'];
 const start=()=>C.start_date||'2024-01-01',days=()=>Math.max(0,(Date.now()-new Date(start()))/864e5);
 const clk=()=>{const m=Date.now()-new Date(start());return`${Math.floor(m/36e5)%24}h ${Math.floor(m/6e4)%60}m ${Math.floor(m/1e3)%60}s`};
 const cdDays=()=>C.next_date?Math.ceil((new Date(C.next_date)-Date.now())/864e5):null;
@@ -108,7 +108,48 @@ async function sendPrincessMessage(txt){
   }catch(e){alert('❌ خطأ في الإرسال: '+e.message);}
 }
 
+// جلب نقاط لوحة الشرف (Leaderboard)
+let scoreData = [];
+async function loadLeaderboardData(){
+  if(!cloud()) return;
+  try{
+    const res = await sbFetch('game_scores?select=*');
+    scoreData = res || [];
+    const box = $('leaderboard-box');
+    if(box) box.innerHTML = renderLeaderboardHTML();
+  }catch(e){console.error('Leaderboard load error:', e);}
+}
+
+function renderLeaderboardHTML(){
+  const prince = scoreData.find(x=>x.player==='prince') || {points:0, wins:0};
+  const princess = scoreData.find(x=>x.player==='princess') || {points:0, wins:0};
+  
+  let winnerText = "🤝 التعادل سيد الموقف!";
+  if(prince.points > princess.points) winnerText = "👑 الأمير متصدر التحدي حالياً!";
+  else if(princess.points > prince.points) winnerText = "👸 الأميرة متصدرة التحدي حالياً!";
+
+  return `
+    <div style="text-align:center; margin-bottom:20px;">
+      <h3 style="color:#d4af37; font-size:1.3rem;">🌟 تحدي الأسبوع ولوحة الشرف</h3>
+      <p class="mut" style="margin-top:5px;">${winnerText}</p>
+    </div>
+    <div style="display:flex; gap:15px; justify-content:center; flex-wrap:wrap; margin-bottom:20px;">
+      <div class="card" style="flex:1; min-width:140px; text-align:center; background:rgba(212,175,55,0.1);">
+        <h4>👑 الأمير</h4>
+        <p style="font-size:1.8rem; font-weight:bold; color:#d4af37;">${prince.points}</p>
+        <small class="mut">نقاط الحب والفوز: ${prince.wins} أسبوعياً</small>
+      </div>
+      <div class="card" style="flex:1; min-width:140px; text-align:center; background:rgba(255,255,255,0.05);">
+        <h4>👸 الأميرة</h4>
+        <p style="font-size:1.8rem; font-weight:bold; color:#fff;">${princess.points}</p>
+        <small class="mut">نقاط الحب والفوز: ${princess.wins} أسبوعياً</small>
+      </div>
+    </div>
+  `;
+}
+
 let chatTimer = null;
+let lbTimer = null;
 
 const V={
 home:()=>{const st=stage(),c=cdDays();return`<div class="bento"><div class="tile hero span2"><small>${t('together')}</small><h2>${Math.floor(days())} ${t('days')}</h2><p id="clk">${clk()}</p></div>
@@ -130,7 +171,8 @@ chat:()=>`<div class="card"><h3>💬 المحادثة الحية مع الأمي
 <div style="display:flex; gap:10px;">
   <input id="princess-chat-input" dir="auto" type="text" placeholder="اكتبي رسالة إلى الأمير..." style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.2); color:#fff;" onkeydown="if(event.key==='Enter') sendPrincessMessage(this.value)">
   <button class="gold" onclick="sendPrincessMessage($('princess-chat-input').value)">إرسال ✉️</button>
-</div></div>`};
+</div></div>`,
+leaderboard:()=>`<div class="card"><div id="leaderboard-box">${renderLeaderboardHTML()}</div></div>`};
 
 const setBaby=(g,n)=>{Prog.baby(g,n||$('bn').value);render()},sendMood=m=>{Prog.mood(m);$('ms').textContent=t('sent')};
 const B={reasons(){const r=L('reasons');$('rb').onclick=()=>{if(r.length)$('rs').textContent=R(r).b}},games(){window.CUR=gid;if(gid)GAMES.find(x=>x[0]===gid)[4]($('gm'))}};
@@ -154,6 +196,13 @@ async function render(){
     if(!chatTimer) chatTimer = setInterval(loadPrincessChat, 3000);
   } else {
     if(chatTimer){ clearInterval(chatTimer); chatTimer = null; }
+  }
+
+  if(route === 'leaderboard'){
+    loadLeaderboardData();
+    if(!lbTimer) lbTimer = setInterval(loadLeaderboardData, 4000);
+  } else {
+    if(lbTimer){ clearInterval(lbTimer); lbTimer = null; }
   }
 
   $('app').innerHTML=shell(V[route]?V[route]():V.home());
