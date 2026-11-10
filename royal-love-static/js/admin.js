@@ -1,8 +1,8 @@
 const SEC=[['notes','💌','رسائل حب · Love notes',['t','b']],['voice','🎙️','رسائل صوتية · Voice notes',['t','u']],['songs','🎵','أغاني (+كلمات) · Songs',['t','u','b']],['photos','📷','صور · Photos',['t','u']],['phrases','💬','كلماتي · Catchphrases',['b']],['poems','📜','شعر · Poetry',['t','b']],['reasons','💖','أسباب أحبك · Reasons',['b']],['letters','✉️','افتحي عندما · Open when',['t','b']],['quiz','💕','أسئلة اختبار الحب · Love quiz',['t','b']]];
 const FL={t:'العنوان · Title',b:'النص · Text',u:'رابط أو مسار الملف · URL / path'};
 const EMPTY={start_date:'2024-01-01',next_date:'',next_label:'موعدنا القادم'};SEC.forEach(s=>EMPTY[s[0]]=[]);
-let AC=null,tab='content',msg='',FILES=[],ups=[],chatMessages=[];
-let chatInterval=null;
+let AC=null,tab='content',msg='',FILES=[],ups=[],chatMessages=[],scoreData=[];
+let chatInterval=null, adminLbTimer=null;
 
 const isCloud=()=>!!CFG.SUPABASE_URL&&!/YOUR-/.test(CFG.SUPABASE_URL+CFG.SUPABASE_KEY);
 const safe=n=>n.replace(/[^\w.\-]/g,'_');
@@ -65,6 +65,61 @@ async function sendAdminMessage(txt){
   }catch(e){
     alert('❌ خطأ في الإرسال: ' + e.message);
   }
+}
+
+// جلب نقاط لوحة الشرف للأدمن
+async function loadAdminLeaderboard(){
+  if(!isCloud()) return;
+  try{
+    const res = await sbReq('game_scores?select=*');
+    scoreData = res || [];
+    const box = $('admin-leaderboard-box');
+    if(box) box.innerHTML = renderAdminLeaderboardHTML();
+  }catch(e){console.error('Leaderboard load error:', e);}
+}
+
+// تعديل النقاط يدوياً من طرف الأمير إذا اقتضى الأمر
+async function updateScore(player, pointsChange){
+  try{
+    const current = scoreData.find(x=>x.player===player) || {points:0, wins:0};
+    const newPoints = Math.max(0, current.points + pointsChange);
+    await sbReq(`game_scores?player=eq.${player}`, 'PATCH', { points: newPoints });
+    loadAdminLeaderboard();
+  }catch(e){alert('❌ خطأ في تحديث النقاط: '+e.message);}
+}
+
+function renderAdminLeaderboardHTML(){
+  const prince = scoreData.find(x=>x.player==='prince') || {points:0, wins:0};
+  const princess = scoreData.find(x=>x.player==='princess') || {points:0, wins:0};
+  
+  let winnerText = "🤝 التعادل سيد الموقف!";
+  if(prince.points > princess.points) winnerText = "👑 الأمير متصدر التحدي حالياً!";
+  else if(princess.points > prince.points) winnerText = "👸 الأميرة متصدرة التحدي حالياً!";
+
+  return `
+    <div style="text-align:center; margin-bottom:20px;">
+      <h3 style="color:#d4af37; font-size:1.3rem;">🏆 لوحة الشرف وتحدي النقاط</h3>
+      <p class="mut" style="margin-top:5px;">${winnerText}</p>
+    </div>
+    <div style="display:flex; gap:15px; justify-content:center; flex-wrap:wrap; margin-bottom:20px;">
+      <div class="card" style="flex:1; min-width:180px; text-align:center; background:rgba(212,175,55,0.1);">
+        <h4>👑 الأمير (جليل)</h4>
+        <p style="font-size:2rem; font-weight:bold; color:#d4af37; margin:10px 0;">${prince.points}</p>
+        <div style="display:flex; gap:5px; justify-content:center;">
+          <button class="chip" onclick="updateScore('prince', 1)">➕ نقطة</button>
+          <button class="chip" onclick="updateScore('prince', -1)">➖ نقطة</button>
+        </div>
+      </div>
+      <div class="card" style="flex:1; min-width:180px; text-align:center; background:rgba(255,255,255,0.05);">
+        <h4>👸 الأميرة (ابتسام)</h4>
+        <p style="font-size:2rem; font-weight:bold; color:#fff; margin:10px 0;">${princess.points}</p>
+        <div style="display:flex; gap:5px; justify-content:center;">
+          <button class="chip" onclick="updateScore('princess', 1)">➕ نقطة</button>
+          <button class="chip" onclick="updateScore('princess', -1)">➖ نقطة</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 async function upload(f){const K=CFG.SUPABASE_KEY,B=CFG.SUPABASE_BUCKET||'media',p=Date.now()+'_'+safe(f.name),h={apikey:K,'Content-Type':f.type||'application/octet-stream'};if(K.startsWith('eyJ'))h.Authorization='Bearer '+K;
@@ -143,9 +198,11 @@ chat:()=>`<div class="card"><h3>💬 المحادثة الحية مع الأمي
   <input id="chat-input" dir="auto" type="text" placeholder="اكتب رسالة إلى الأميرة..." style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.2); color:#fff;" onkeydown="if(event.key==='Enter') sendAdminMessage(this.value)">
   <button class="gold" onclick="sendAdminMessage($('chat-input').value)">إرسال ✉️</button>
 </div></div>`,
-guide:()=>`<div class="card pre"><h3>📘 Cloud Sync & Chat Active</h3>1) Edit content freely in ✍️ Content.
+leaderboard:()=>`<div class="card"><div id="admin-leaderboard-box">${renderAdminLeaderboardHTML()}</div></div>`,
+guide:()=>`<div class="card pre"><h3>📘 Cloud Sync, Chat & Leaderboard Active</h3>1) Edit content freely in ✍️ Content.
 2) Click ☁️ <b>Save to Cloud</b>.
-3) Chat live with the Princess instantly in 💬 Chat!</div>`};
+3) Chat live with the Princess in 💬 الشات المباشر.
+4) Manage scores in 🏆 لوحة الشرف!</div>`};
 
 function drawAdmin(){
   document.documentElement.dir='rtl';
@@ -153,7 +210,7 @@ function drawAdmin(){
     AC = Object.assign({}, EMPTY, JSON.parse(JSON.stringify(window.CONTENT||{})));
   }
   
-  // التحكم في تحديث التشات آلياً إذا كان التاب الحالي هو chat
+  // التحكم في التحديث الآلي للتشات ولوحة الشرف
   if(tab === 'chat') {
     if(!chatInterval) chatInterval = setInterval(loadChatMessages, 3000);
     loadChatMessages();
@@ -161,8 +218,15 @@ function drawAdmin(){
     if(chatInterval) { clearInterval(chatInterval); chatInterval = null; }
   }
 
+  if(tab === 'leaderboard') {
+    loadAdminLeaderboard();
+    if(!adminLbTimer) adminLbTimer = setInterval(loadAdminLeaderboard, 4000);
+  } else {
+    if(adminLbTimer) { clearInterval(adminLbTimer); adminLbTimer = null; }
+  }
+
   $('app').innerHTML=`<div class="wrap"><header><h1>🛡️ جليل · Admin</h1><div class="row"><button class="chip" onclick="setView('princess')">👁 Preview</button><button class="chip" onclick="logout()">خروج · Exit</button></div></header>
-<nav class="chips">${[['content','✍️ المحتوى · Content'],['media','🖼️ الوسائط · Media'],['chat','💬 الشات المباشر'],['guide','📘 الدليل · Guide']].map(([k,l])=>`<a class="chip ${tab===k?'on':''}" href="javascript:tab='${k}';drawAdmin()">${l}</a>`).join('')}</nav>${T[tab]()}</div>`;
+<nav class="chips">${[['content','✍️ المحتوى · Content'],['media','🖼️ الوسائط · Media'],['chat','💬 الشات المباشر'],['leaderboard','🏆 لوحة الشرف'],['guide','📘 الدليل · Guide']].map(([k,l])=>`<a class="chip ${tab===k?'on':''}" href="javascript:tab='${k}';drawAdmin()">${l}</a>`).join('')}</nav>${T[tab]()}</div>`;
 }
 
 async function initAdmin(){
@@ -174,6 +238,7 @@ async function initAdmin(){
   drawAdmin();
 }
 
-// ربط الدالة بالنافذة لكي تتعرف عليها main.js
+// ربط الدوال بالنافذة لكي تتعرف عليها main.js
 window.drawAdmin = drawAdmin;
 window.initAdmin = initAdmin;
+window.updateScore = updateScore;
