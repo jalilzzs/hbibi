@@ -106,6 +106,29 @@ async function sendPrincessMessage(txt){
   }catch(e){alert('❌ خطأ في الإرسال: '+e.message);}
 }
 
+// دالة تتيح لابتسام إرسال منشور أو خاطر لتظهر عند جليل
+async function sendPrincessPost(section, body){
+  if(!body || !body.trim() || !cloud()) return;
+  try{
+    const K=CFG.SUPABASE_KEY, U=CFG.SUPABASE_URL;
+    const r = await fetch(`${U}/rest/v1/content_items`, {
+      method: 'POST',
+      headers: {apikey: K, Authorization: 'Bearer ' + K, 'Content-Type': 'application/json', Prefer: 'return=representation'},
+      body: JSON.stringify({
+        section: section,
+        title: 'منشور من الأميرة 👑',
+        body: body.trim(),
+        media_url: ''
+      })
+    });
+    if(!r.ok) throw new Error(await r.text());
+    alert('✅ وصلت رسالتك إلى الأمير جليل بنجاح تام! 💌');
+    render();
+  }catch(e){
+    alert('❌ خطأ أثناء النشر: '+e.message);
+  }
+}
+
 let scoreData = [];
 async function loadLeaderboardData(){
   if(!cloud()) return;
@@ -152,15 +175,26 @@ const V={
 home:()=>{const st=stage(),c=cdDays();return`<div class="bento"><div class="tile hero span2"><small>${t('together')}</small><h2>${Math.floor(days())} ${t('days')}</h2><p id="clk">${clk()}</p></div>
 <a class="tile accent" href="#/games"><i>💎</i><b class="pts">${Prog.d.love_points}</b><small>${t('points')}</small></a><a class="tile accent" href="#/baby"><i>${st.s[2]}</i><b>${esc(Prog.d.baby_name)}</b><small>${st.s[1][ix(lang)]}</small></a>
 ${NAV.slice(1).map(([k,i])=>`<a class="tile ${SPECIAL.includes(k)?'accent':''}" href="#/${k}"><i>${i}</i><b>${t(k)}</b>${k==='countdown'&&c!=null?`<small>${c} ${t('left')}</small>`:''}</a>`).join('')}</div>`},
-notes:()=>list('notes',x=>card(x)),voice:()=>list('voice',x=>card(x,aud(x))),songs:()=>list('songs',x=>card(x,aud(x))),
+notes:()=>list('notes',x=>card(x))+`<div class="card"><h3>💌 أضفي رسالة أو خاطرة للأمير</h3><textarea id="prince-note-input" rows="3" dir="auto" placeholder="اكتبي ما في قلبك..." style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.2); color:#fff; margin-bottom:10px;"></textarea><button class="gold" onclick="sendPrincessPost('notes', $('prince-note-input').value)">إرسال إلى الأمير 💌</button></div>`,
+voice:()=>list('voice',x=>card(x,aud(x))),songs:()=>list('songs',x=>card(x,aud(x))),
 photos:()=>L('photos').length?`<div class="pg">${L('photos').map(x=>`<div class="card" style="padding:8px;margin:0"><img loading="lazy" src="${esc(x.u)}" alt="">${x.t?`<p class="center">${esc(x.t)}</p>`:''}</div>`).join('')}</div>`:`<p class="mut center">${t('empty')}</p>`,
 phrases:()=>list('phrases',x=>`<div class="big-card">${esc(x.b)}</div>`),poems:()=>list('poems',x=>card(x)),
 letters:()=>list('letters',x=>`<details class="card"><summary><h3 style="display:inline">✉️ ${esc(x.t)}</h3></summary><p class="pre">${esc(x.b)}</p></details>`),
 reasons:()=>{const r=L('reasons');return`<div class="card center"><div class="big-card" id="rs">${r.length?esc(R(r).b):t('empty')}</div><button class="gold" id="rb">${t('another')}</button></div>`},
 baby:()=>{const s=stage(),g=Prog.d.baby_gender;return`<div class="card center"><div class="babe">${s.s[2]}</div><h2>${esc(Prog.d.baby_name)} · ${s.s[1][ix(lang)]}</h2><div class="bar"><i style="width:${s.p}%"></i></div><p class="mut">${s.n?`→ ${s.n[1][ix(lang)]} (${s.n[0]} ${t('days')})`:'💖'}</p>
 <div class="row"><button class="chip ${g==='girl'?'on':''}" onclick="setBaby('girl')">${t('girl')}</button><button class="chip ${g==='boy'?'on':''}" onclick="setBaby('boy')">${t('boy')}</button></div><input id="bn" value="${esc(Prog.d.baby_name)}" onchange="setBaby('${g}',this.value)"></div>`},
-games:()=>{if(gid){const g=GAMES.find(x=>x[0]===gid);return`<a class="chip" href="#/games">${t('back')}</a><div class="card"><h2>${g[1]} ${g[2+ix(lang)]} <small class="mut">💎 <span class="pts">${Prog.d.love_points}</span></small></h2><div id="gm"></div></div>`}
-return`<p class="center">💎 <b class="pts">${Prog.d.love_points}</b></p><div class="bento">${GAMES.map(g=>`<a class="tile" href="#/games/${g[0]}"><i>${g[1]}</i><b>${g[2+ix(lang)]}</b>${Prog.d.scores&&Prog.d.scores[g[0]]?`<small>🏅 ${Prog.d.scores[g[0]]}</small>`:''}</a>`).join('')}</div>`},
+games:()=>{
+  if(gid){
+    const g = typeof GAMES !== 'undefined' ? GAMES.find(x=>x[0]===gid) : null;
+    const titleText = g ? (g[2+ix(lang)] || g[1]) : gid;
+    return `<a class="chip" href="#/games">${t('back')}</a><div class="card"><h2>🎮 ${esc(titleText)} <small class="mut">💎 <span class="pts">${Prog.d.love_points}</span></small></h2><div id="gm" style="margin-top:15px;"></div></div>`;
+  }
+  const gamesList = typeof GAMES !== 'undefined' ? GAMES : [];
+  return `<p class="center">💎 <b class="pts">${Prog.d.love_points}</b></p>
+  <div class="bento">
+    ${gamesList.map(g=>`<a class="tile" href="#/games/${g[0]}"><i>${g[1]}</i><b>${g[2+ix(lang)]||g[1]}</b>${Prog.d.scores&&Prog.d.scores[g[0]]?`<small>🏅 ${Prog.d.scores[g[0]]}</small>`:''}</a>`).join('')}
+  </div>`;
+},
 countdown:()=>{const c=cdDays();return`<div class="card center hero"><h2>${esc(C.next_label||'')}</h2>${c==null?`<p>${t('noDate')}</p>`:`<h2 style="font-size:4rem">${Math.max(0,c)}</h2><p>${t('left')}</p>`}</div>`},
 mood:()=>`<div class="card center"><h3>${t('moodAsk')}</h3><div class="row">${['😍','🥰','😊','🤗','😘','😴','😢','😡'].map(m=>`<button class="cell" onclick="sendMood('${m}')">${m}</button>`).join('')}</div><p id="ms" class="mut"></p></div>`,
 chat:()=>`<div class="card"><h3>💬 المحادثة الحية مع الأمير جليل · Live Chat</h3>
