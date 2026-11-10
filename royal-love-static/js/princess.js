@@ -1,3 +1,5 @@
+const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
 let lang=localStorage.lang||'ar',route='home',gid='',err='',gm='code';window.CUR='';let C={};const L=k=>C[k]||[];
 
 // دالة جلب البيانات الحية أوتوماتيكياً من Supabase
@@ -49,16 +51,67 @@ async function loadPrincessContent(){
 const D={title:['عالم الأميرة إبتسام','Princess Ibtissam’s World'],gateT:['صاحبة الجلالة الأميرة إبتسام','Her Majesty Princess Ibtissam'],code:['🔑 الرمز','🔑 Code'],face:['📸 الوجه','📸 Face'],ph:['الرمز الملكي','Royal passcode'],enter:['دخول','Enter'],wrong:['رمز خاطئ','Wrong code'],exit:['خروج','Exit'],
 together:['معًا منذ','Together for'],days:['يوم','days'],points:['نقاط الحب','Love points'],empty:['لا شيء هنا بعد 💌','Nothing here yet 💌'],back:['← رجوع','← Back'],camMsg:['انظري إلى الكاميرا 👑','Look at the camera 👑'],
 home:['الرئيسية','Home'],notes:['رسائل حب','Love notes'],voice:['رسائل صوتية','Voice notes'],songs:['أغاني وكاريوكي','Songs'],photos:['الصور','Gallery'],phrases:['كلماتي','Catchphrases'],poems:['شعر','Poetry'],games:['ألعاب','Games'],baby:['البيبي','Baby'],
-reasons:['أسباب أحبك','Reasons I love you'],letters:['افتحي عندما…','Open when…'],countdown:['العد التنازلي','Countdown'],mood:['مزاجي اليوم','My mood'],another:['سبب آخر 💖','Another 💖'],moodAsk:['كيف تشعرين الآن؟','How do you feel?'],sent:['وصلت لحبيبك 💌','Sent to your love 💌'],noDate:['لم يُحدَّد موعد','No date set'],girl:['👧 بنت','👧 Girl'],boy:['👦 ولد','👦 Boy'],left:['يوم متبقٍ','days left'],admin:['🛡️ المشرف','🛡️ Admin'],cloud:['☁️ التقدم محفوظ والمحتوى مباشر','☁️ Live Cloud Sync'],loc:['💾 محفوظ محلياً','💾 Local mode']};
+reasons:['أسباب أحبك','Reasons I love you'],letters:['افتحي عندما…','Open when…'],countdown:['العد التنازلي','Countdown'],mood:['مزاجي اليوم','My mood'],another:['سبب آخر 💖','Another 💖'],moodAsk:['كيف تشعرين الآن؟','How do you feel?'],sent:['وصلت لحبيبك 💌','Sent to your love 💌'],noDate:['لم يُحدَّد موعد','No date set'],girl:['👧 بنت','👧 Girl'],boy:['👦 ولد','👦 Boy'],left:['يوم متبقٍ','days left'],admin:['🛡️ المشرف','🛡️ Admin'],cloud:['☁️ التقدم محفوظ والمحتوى مباشر','☁️ Live Cloud Sync'],loc:['💾 محفوظ محلياً','💾 Local mode'],chat:['💬 الشات المباشر','💬 Live Chat']};
+
 const t=k=>D[k][lang==='ar'?0:1],ix=lang=>lang==='ar'?0:1;
-const NAV=[['home','🏠'],['notes','💌'],['voice','🎙️'],['songs','🎵'],['photos','📷'],['phrases','💬'],['poems','📜'],['games','🎮'],['baby','👶'],['reasons','💖'],['letters','✉️'],['countdown','⏳'],['mood','🥰']],SPECIAL=['reasons','letters','countdown','mood'];
+const NAV=[['home','🏠'],['notes','💌'],['voice','🎙️'],['songs','🎵'],['photos','📷'],['phrases','💬'],['poems','📜'],['games','🎮'],['baby','👶'],['reasons','💖'],['letters','✉️'],['countdown','⏳'],['mood','🥰'],['chat','💬']];
+const SPECIAL=['reasons','letters','countdown','mood','chat'];
 const start=()=>C.start_date||'2024-01-01',days=()=>Math.max(0,(Date.now()-new Date(start()))/864e5);
 const clk=()=>{const m=Date.now()-new Date(start());return`${Math.floor(m/36e5)%24}h ${Math.floor(m/6e4)%60}m ${Math.floor(m/1e3)%60}s`};
 const cdDays=()=>C.next_date?Math.ceil((new Date(C.next_date)-Date.now())/864e5):null;
+
 function stage(){const g=Prog.d.baby_gender==='girl',d=days(),st=[[0,['مولود','Newborn'],'👶'],[30,['رضيع','Baby'],'🍼'],[180,['طفل صغير','Toddler'],'🧒'],[365,['طفل','Kid'],g?'👧':'👦'],[730,['مراهق','Teen'],g?'👩‍🎤':'🧑‍🎤'],[1460,['كبير','Grown-up'],g?'👩':'👨']];const i=st.filter(x=>d>=x[0]).length-1,n=st[i+1];return{s:st[i],n,p:n?(d-st[i][0])/(n[0]-st[i][0])*100:100}}
 const list=(k,f)=>L(k).length?L(k).map(f).join(''):`<p class="mut center">${t('empty')}</p>`;
 const card=(x,ex)=>`<div class="card">${x.t?`<h3>${esc(x.t)}</h3>`:''}${ex||''}${x.b?`<p class="pre">${esc(x.b)}</p>`:''}</div>`;
 const aud=x=>x.u?`<audio controls preload="none" src="${esc(x.u)}"></audio>`:'';
+
+// دوال التشات المباشر لابتسام (الأميرة)
+let princessChatMsgs = [];
+async function loadPrincessChat(){
+  if(!cloud()) return;
+  try{
+    const r = await sbFetch('chat_messages?select=*&order=created_at.asc');
+    princessChatMsgs = r || [];
+    const box = $('princess-chat-box');
+    if(box){
+      box.innerHTML = renderPrincessChatList();
+      box.scrollTop = box.scrollHeight;
+    }
+  }catch(e){console.error('Chat load error:', e);}
+}
+
+function renderPrincessChatList(){
+  if(!princessChatMsgs.length) return `<p class="mut center" style="padding:20px;">لا توجد رسائل بعد. تحدثي مع الأمير! 💌</p>`;
+  return princessChatMsgs.map(m=>{
+    const isPrincess = m.sender === 'princess';
+    const name = isPrincess ? '👸 الأميرة' : '👑 الأمير';
+    const bg = isPrincess ? 'background: rgba(212, 175, 55, 0.15); border-color: rgba(212, 175, 55, 0.4);' : 'background: rgba(255, 255, 255, 0.08);';
+    return `<div class="item" style="display:flex; flex-direction:column; margin-bottom:10px; padding:10px; border-radius:8px; ${bg}">
+      <div style="display:flex; justify-content:space-between; font-size:0.85rem; opacity:0.8; margin-bottom:4px;">
+        <strong>${name}</strong>
+        <small>${new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</small>
+      </div>
+      <div dir="auto" style="word-break: break-word; font-size:1.05rem;">${esc(m.message)}</div>
+    </div>`;
+  }).join('');
+}
+
+async function sendPrincessMessage(txt){
+  if(!txt || !txt.trim() || !cloud()) return;
+  try{
+    const K=CFG.SUPABASE_KEY, U=CFG.SUPABASE_URL;
+    await fetch(`${U}/rest/v1/chat_messages`, {
+      method: 'POST',
+      headers: {apikey: K, Authorization: 'Bearer ' + K, 'Content-Type': 'application/json'},
+      body: JSON.stringify({ sender: 'princess', message: txt.trim() })
+    });
+    $('princess-chat-input').value = '';
+    loadPrincessChat();
+  }catch(e){alert('❌ خطأ في الإرسال: '+e.message);}
+}
+
+let chatTimer = null;
+
 const V={
 home:()=>{const st=stage(),c=cdDays();return`<div class="bento"><div class="tile hero span2"><small>${t('together')}</small><h2>${Math.floor(days())} ${t('days')}</h2><p id="clk">${clk()}</p></div>
 <a class="tile accent" href="#/games"><i>💎</i><b class="pts">${Prog.d.love_points}</b><small>${t('points')}</small></a><a class="tile accent" href="#/baby"><i>${st.s[2]}</i><b>${esc(Prog.d.baby_name)}</b><small>${st.s[1][ix(lang)]}</small></a>
@@ -73,13 +126,22 @@ baby:()=>{const s=stage(),g=Prog.d.baby_gender;return`<div class="card center"><
 games:()=>{if(gid){const g=GAMES.find(x=>x[0]===gid);return`<a class="chip" href="#/games">${t('back')}</a><div class="card"><h2>${g[1]} ${g[2+ix(lang)]} <small class="mut">💎 <span class="pts">${Prog.d.love_points}</span></small></h2><div id="gm"></div></div>`}
 return`<p class="center">💎 <b class="pts">${Prog.d.love_points}</b></p><div class="bento">${GAMES.map(g=>`<a class="tile" href="#/games/${g[0]}"><i>${g[1]}</i><b>${g[2+ix(lang)]}</b>${Prog.d.scores&&Prog.d.scores[g[0]]?`<small>🏅 ${Prog.d.scores[g[0]]}</small>`:''}</a>`).join('')}</div>`},
 countdown:()=>{const c=cdDays();return`<div class="card center hero"><h2>${esc(C.next_label||'')}</h2>${c==null?`<p>${t('noDate')}</p>`:`<h2 style="font-size:4rem">${Math.max(0,c)}</h2><p>${t('left')}</p>`}</div>`},
-mood:()=>`<div class="card center"><h3>${t('moodAsk')}</h3><div class="row">${['😍','🥰','😊','🤗','😘','😴','😢','😡'].map(m=>`<button class="cell" onclick="sendMood('${m}')">${m}</button>`).join('')}</div><p id="ms" class="mut"></p></div>`};
+mood:()=>`<div class="card center"><h3>${t('moodAsk')}</h3><div class="row">${['😍','🥰','😊','🤗','😘','😴','😢','😡'].map(m=>`<button class="cell" onclick="sendMood('${m}')">${m}</button>`).join('')}</div><p id="ms" class="mut"></p></div>`,
+chat:()=>`<div class="card"><h3>💬 المحادثة الحية مع الأمير · Live Chat</h3>
+<div id="princess-chat-box" style="max-height:350px; overflow-y:auto; margin-bottom:15px; padding-right:5px;">${renderPrincessChatList()}</div>
+<div style="display:flex; gap:10px;">
+  <input id="princess-chat-input" dir="auto" type="text" placeholder="اكتبي رسالة إلى الأمير..." style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.2); color:#fff;" onkeydown="if(event.key==='Enter') sendPrincessMessage(this.value)">
+  <button class="gold" onclick="sendPrincessMessage($('princess-chat-input').value)">إرسال ✉️</button>
+</div></div>`};
+
 const setBaby=(g,n)=>{Prog.baby(g,n||$('bn').value);render()},sendMood=m=>{Prog.mood(m);$('ms').textContent=t('sent')};
 const B={reasons(){const r=L('reasons');$('rb').onclick=()=>{if(r.length)$('rs').textContent=R(r).b}},games(){window.CUR=gid;if(gid)GAMES.find(x=>x[0]===gid)[4]($('gm'))}};
 Prog.onchange=()=>document.querySelectorAll('.pts').forEach(e=>e.textContent=Prog.d.love_points);
+
 function shell(body){return`<div class="wrap"><header><h1>👑 ${t('title')}</h1><div class="row"><button class="chip" onclick="setLang()">${lang==='ar'?'EN':'عربي'}</button><button class="chip" onclick="logout()">${t('exit')}</button></div></header>
 ${Prog.err?`<div class="card err" style="padding:8px;font-size:.85rem">⚠️ ${esc(Prog.err)}</div>`:''}<nav class="chips">${NAV.map(([k,i])=>`<a class="chip ${route===k?'on':''}" href="#/${k}">${i} ${t(k)}</a>`).join('')}</nav>${body}
 <footer>${sessionStorage.role==='admin'?`<a href="javascript:setView('admin')">${t('admin')}</a>`:''}<a href="#/home">🏠 ${t('home')}</a><a href="#/games">🎮 ${t('games')}</a><a href="#/notes">💌 ${t('notes')}</a><p class="mut">${cloud()?t('cloud'):t('loc')}</p></footer></div>`}
+
 async function render(){
   TM.forEach(clearInterval);TM=[];
   C = await loadPrincessContent();
@@ -88,6 +150,14 @@ async function render(){
   document.documentElement.dir=lang==='ar'?'rtl':'ltr';
   document.title=t('title');
   const[r,g]=location.hash.slice(2).split('/');route=r||'home';gid=g||'';if(route!=='games')window.CUR='';
+  
+  if(route === 'chat'){
+    loadPrincessChat();
+    if(!chatTimer) chatTimer = setInterval(loadPrincessChat, 3000);
+  } else {
+    if(chatTimer){ clearInterval(chatTimer); chatTimer = null; }
+  }
+
   $('app').innerHTML=shell(V[route]?V[route]():V.home());
   B[route]&&B[route]();
   if(route==='home')iv(()=>{const c=$('clk');c&&(c.textContent=clk())},1000);
