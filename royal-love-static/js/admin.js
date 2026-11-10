@@ -1,9 +1,9 @@
 const SEC=[['notes','💌','رسائل حب · Love notes',['t','b']],['voice','🎙️','رسائل صوتية · Voice notes',['t','u']],['songs','🎵','أغاني (+كلمات) · Songs',['t','u','b']],['photos','📷','صور · Photos',['t','u']],['phrases','💬','كلماتي · Catchphrases',['b']],['poems','📜','شعر · Poetry',['t','b']],['reasons','💖','أسباب أحبك · Reasons',['b']],['letters','✉️','افتحي عندما · Open when',['t','b']],['quiz','💕','أسئلة اختبار الحب · Love quiz',['t','b']]];
 const FL={t:'العنوان · Title',b:'النص · Text',u:'رابط أو مسار الملف · URL / path'};
 const EMPTY={start_date:'2024-01-01',next_date:'',next_label:'موعدنا القادم'};SEC.forEach(s=>EMPTY[s[0]]=[]);
-let AC=null,tab='content',msg='',FILES=[],ups=[];
+let AC=null,tab='content',msg='',FILES=[],ups=[],chatMessages=[];
+let chatInterval=null;
 
-// تم تغيير اسم الدالة لتجنب التضارب (Duplicate variable)
 const isCloud=()=>!!CFG.SUPABASE_URL&&!/YOUR-/.test(CFG.SUPABASE_URL+CFG.SUPABASE_KEY);
 const safe=n=>n.replace(/[^\w.\-]/g,'_');
 
@@ -32,6 +32,38 @@ async function loadFromDB(){
   }catch(e){
     msg='⚠️ Failed to load from DB: '+e.message;
     AC = Object.assign({}, EMPTY, JSON.parse(JSON.stringify(window.CONTENT||{})));
+  }
+}
+
+// جلب رسائل الشات
+async function loadChatMessages(){
+  try{
+    const msgs = await sbReq('chat_messages?select=*&order=created_at.asc');
+    chatMessages = msgs || [];
+    if(tab === 'chat') {
+      const box = $('chat-box-content');
+      if(box) {
+        box.innerHTML = renderChatList();
+        box.scrollTop = box.scrollHeight;
+      }
+    }
+  }catch(e){
+    console.error('Chat load error:', e);
+  }
+}
+
+// إرسال رسالة من الأمير
+async function sendAdminMessage(txt){
+  if(!txt || !txt.trim()) return;
+  try{
+    await sbReq('chat_messages', 'POST', {
+      sender: 'prince',
+      message: txt.trim()
+    });
+    $('chat-input').value = '';
+    loadChatMessages();
+  }catch(e){
+    alert('❌ خطأ في الإرسال: ' + e.message);
   }
 }
 
@@ -82,6 +114,22 @@ async function saveToCloud(){
   drawAdmin();
 }
 
+function renderChatList(){
+  if(!chatMessages.length) return `<p class="mut center" style="padding:20px;">لا توجد رسائل بعد. ابدأ المحادثة مع الأميرة! 💌</p>`;
+  return chatMessages.map(m=>{
+    const isPrince = m.sender === 'prince';
+    const name = isPrince ? '👑 الأمير' : '👸 الأميرة';
+    const bg = isPrince ? 'background: rgba(212, 175, 55, 0.15); border-color: rgba(212, 175, 55, 0.4);' : 'background: rgba(255, 255, 255, 0.08);';
+    return `<div class="item" style="display:flex; flex-direction:column; margin-bottom:10px; ${bg}">
+      <div style="display:flex; justify-content:space-between; font-size:0.85rem; opacity:0.8; margin-bottom:4px;">
+        <strong>${name}</strong>
+        <small>${new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</small>
+      </div>
+      <div dir="auto" style="word-break: break-word; font-size:1.05rem;">${esc(m.message)}</div>
+    </div>`;
+  }).join('');
+}
+
 const T={
 content:()=>`<div class="card"><h3>⚙️ عام · General</h3><label>معًا منذ · Together since<input type="date" value="${esc(AC.start_date)}" oninput="AC.start_date=this.value"></label>
 <label>الموعد القادم · Next date<input type="date" value="${esc(AC.next_date)}" oninput="AC.next_date=this.value"></label><label>عنوان الموعد · Label<input dir="auto" value="${esc(AC.next_label)}" oninput="AC.next_label=this.value"></label></div>
@@ -89,17 +137,32 @@ ${SEC.map(([k,ic,lb,fs])=>`<div class="card"><h3>${ic} ${lb} (${(AC[k]||[]).leng
 <div class="card center"><button class="gold" onclick="saveToCloud()">☁️ حفظ وإرسال إلى السحاب · Save to Cloud</button><p class="mut">${esc(msg)}</p><button onclick="initAdmin()">↺ إعادة تحميل · Refresh</button></div>`,
 media:()=>`<div class="card"><h3>🖼️ Supabase Storage: ${isCloud()?'ON':'OFF'}</h3>${isCloud()?`<input type="file" multiple accept="audio/*,image/*" onchange="upMany(this.files)"><p class="err">${esc(msg)}</p>`:'<p class="mut">Not configured.</p>'}
 ${ups.map(u=>`<div class="item"><small>${esc(u)}</small><button onclick="navigator.clipboard.writeText('${esc(u)}')">📋 Copy</button></div>`).join('')}</div>`,
-guide:()=>`<div class="card pre"><h3>📘 Cloud Sync Active</h3>1) Edit content freely in ✍️ Content.
+chat:()=>`<div class="card"><h3>💬 المحادثة الحية مع الأميرة · Live Chat</h3>
+<div id="chat-box-content" style="max-height:350px; overflow-y:auto; margin-bottom:15px; padding-right:5px;">${renderChatList()}</div>
+<div style="display:flex; gap:10px;">
+  <input id="chat-input" dir="auto" type="text" placeholder="اكتب رسالة إلى الأميرة..." style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.2); color:#fff;" onkeydown="if(event.key==='Enter') sendAdminMessage(this.value)">
+  <button class="gold" onclick="sendAdminMessage($('chat-input').value)">إرسال ✉️</button>
+</div></div>`,
+guide:()=>`<div class="card pre"><h3>📘 Cloud Sync & Chat Active</h3>1) Edit content freely in ✍️ Content.
 2) Click ☁️ <b>Save to Cloud</b>.
-3) Everything updates instantly on Ibtissam's screen automatically!</div>`};
+3) Chat live with the Princess instantly in 💬 Chat!</div>`};
 
 function drawAdmin(){
   document.documentElement.dir='rtl';
   if(!AC){
     AC = Object.assign({}, EMPTY, JSON.parse(JSON.stringify(window.CONTENT||{})));
   }
+  
+  // التحكم في تحديث التشات آلياً إذا كان التاب الحالي هو chat
+  if(tab === 'chat') {
+    if(!chatInterval) chatInterval = setInterval(loadChatMessages, 3000);
+    loadChatMessages();
+  } else {
+    if(chatInterval) { clearInterval(chatInterval); chatInterval = null; }
+  }
+
   $('app').innerHTML=`<div class="wrap"><header><h1>🛡️ جليل · Admin</h1><div class="row"><button class="chip" onclick="setView('princess')">👁 Preview</button><button class="chip" onclick="logout()">خروج · Exit</button></div></header>
-<nav class="chips">${[['content','✍️ المحتوى · Content'],['media','🖼️ الوسائط · Media'],['guide','📘 الدليل · Guide']].map(([k,l])=>`<a class="chip ${tab===k?'on':''}" href="javascript:tab='${k}';drawAdmin()">${l}</a>`).join('')}</nav>${T[tab]()}</div>`;
+<nav class="chips">${[['content','✍️ المحتوى · Content'],['media','🖼️ الوسائط · Media'],['chat','💬 الشات المباشر'],['guide','📘 الدليل · Guide']].map(([k,l])=>`<a class="chip ${tab===k?'on':''}" href="javascript:tab='${k}';drawAdmin()">${l}</a>`).join('')}</nav>${T[tab]()}</div>`;
 }
 
 async function initAdmin(){
