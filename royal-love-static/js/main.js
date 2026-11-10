@@ -25,16 +25,19 @@ function login(){
   const n = norm(gname);
   const p = dig(gpInput ? gpInput.value : '');
 
-  // التحقق من دخول الأمير جليل بالرمز 080314 أو كود الأدمين
-  const isJalil = (n.includes('جليل') || n.includes('jalil')) && (p === '080314' || (window.CFG && p === window.CFG.ADMIN.pass));
-  // التحقق من دخول الأميرة ابتسام
-  const isIbtissam = (n.includes('ابتسام') || n.includes('ibtissam') || n.includes('بسومة')) && (window.CFG && window.CFG.PRINCESS.names.some(x=>norm(x)===n) && p === window.CFG.PRINCESS.pass);
-
-  if(isJalil){
-    enter('admin', 'admin'); // صفحة الأمير / لوحة التحكم
-  } else if(isIbtissam || (window.CFG && window.CFG.PRINCESS.names.some(x=>norm(x)===n) && p === window.CFG.PRINCESS.pass)){
-    enter('princess', 'princess'); // صفحة الأميرة ابتسام
-  } else {
+  // 1. دخول الأمير جليل بصفحته الخاصة عبر الرمز 080314
+  if(p === '080314'){
+    enter('jalil', 'jalil');
+  } 
+  // 2. دخول الأدمن بالرمز القديم لوحة التحكم
+  else if(window.CFG && p === window.CFG.ADMIN.pass){
+    enter('admin', 'admin');
+  } 
+  // 3. دخول الأميرة ابتسام
+  else if(window.CFG && window.CFG.PRINCESS.names.some(x=>norm(x)===n) && p === window.CFG.PRINCESS.pass){
+    enter('princess', 'princess');
+  } 
+  else {
     gerr = g('bad');
     gate();
   }
@@ -58,15 +61,18 @@ function boot(){
   const view = sessionStorage.view;
 
   if(!role) return gate();
+  
   if(role === 'admin' || view === 'admin'){
     if(typeof drawAdmin === 'function') drawAdmin();
+  } else if(role === 'jalil' || view === 'jalil'){
+    if(typeof renderJalil === 'function') renderJalil();
   } else {
     if(typeof render === 'function') render();
   }
 }
 
 window.addEventListener('hashchange', () => {
-  if(sessionStorage.role && sessionStorage.view !== 'admin'){
+  if(sessionStorage.role && sessionStorage.view !== 'admin' && sessionStorage.view !== 'jalil'){
     if(typeof render === 'function') render();
   }
 });
