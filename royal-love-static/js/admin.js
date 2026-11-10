@@ -1,8 +1,8 @@
 const SEC=[['notes','💌','رسائل حب · Love notes',['t','b']],['voice','🎙️','رسائل صوتية · Voice notes',['t','u']],['songs','🎵','أغاني (+كلمات) · Songs',['t','u','b']],['photos','📷','صور · Photos',['t','u']],['phrases','💬','كلماتي · Catchphrases',['b']],['poems','📜','شعر · Poetry',['t','b']],['reasons','💖','أسباب أحبك · Reasons',['b']],['letters','✉️','افتحي عندما · Open when',['t','b']],['quiz','💕','أسئلة اختبار الحب · Love quiz',['t','b']]];
 const FL={t:'العنوان · Title',b:'النص · Text',u:'رابط أو مسار الملف · URL / path'};
 const EMPTY={start_date:'2024-01-01',next_date:'',next_label:'موعدنا القادم'};SEC.forEach(s=>EMPTY[s[0]]=[]);
-let AC=null,tab='content',msg='',FILES=[],ups=[],chatMessages=[],scoreData=[];
-let chatInterval=null, adminLbTimer=null;
+let AC=null,tab='content',msg='',FILES=[],ups=[],chatMessages=[];
+let chatInterval=null, adminLbTimer=null, adminScoreData=[];
 
 const isCloud=()=>!!CFG.SUPABASE_URL&&!/YOUR-/.test(CFG.SUPABASE_URL+CFG.SUPABASE_KEY);
 const safe=n=>n.replace(/[^\w.\-]/g,'_');
@@ -72,16 +72,16 @@ async function loadAdminLeaderboard(){
   if(!isCloud()) return;
   try{
     const res = await sbReq('game_scores?select=*');
-    scoreData = res || [];
+    adminScoreData = res || [];
     const box = $('admin-leaderboard-box');
     if(box) box.innerHTML = renderAdminLeaderboardHTML();
   }catch(e){console.error('Leaderboard load error:', e);}
 }
 
-// تعديل النقاط يدوياً من طرف الأمير إذا اقتضى الأمر
+// تعديل النقاط يدوياً من طرف الأمير
 async function updateScore(player, pointsChange){
   try{
-    const current = scoreData.find(x=>x.player===player) || {points:0, wins:0};
+    const current = adminScoreData.find(x=>x.player===player) || {points:0, wins:0};
     const newPoints = Math.max(0, current.points + pointsChange);
     await sbReq(`game_scores?player=eq.${player}`, 'PATCH', { points: newPoints });
     loadAdminLeaderboard();
@@ -89,8 +89,8 @@ async function updateScore(player, pointsChange){
 }
 
 function renderAdminLeaderboardHTML(){
-  const prince = scoreData.find(x=>x.player==='prince') || {points:0, wins:0};
-  const princess = scoreData.find(x=>x.player==='princess') || {points:0, wins:0};
+  const prince = adminScoreData.find(x=>x.player==='prince') || {points:0, wins:0};
+  const princess = adminScoreData.find(x=>x.player==='princess') || {points:0, wins:0};
   
   let winnerText = "🤝 التعادل سيد الموقف!";
   if(prince.points > princess.points) winnerText = "👑 الأمير متصدر التحدي حالياً!";
@@ -210,7 +210,6 @@ function drawAdmin(){
     AC = Object.assign({}, EMPTY, JSON.parse(JSON.stringify(window.CONTENT||{})));
   }
   
-  // التحكم في التحديث الآلي للتشات ولوحة الشرف
   if(tab === 'chat') {
     if(!chatInterval) chatInterval = setInterval(loadChatMessages, 3000);
     loadChatMessages();
@@ -238,7 +237,6 @@ async function initAdmin(){
   drawAdmin();
 }
 
-// ربط الدوال بالنافذة لكي تتعرف عليها main.js
 window.drawAdmin = drawAdmin;
 window.initAdmin = initAdmin;
 window.updateScore = updateScore;
