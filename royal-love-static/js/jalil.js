@@ -135,15 +135,26 @@ const JV={
     <button class="gold" onclick="sendJalilMessage($('jalil-chat-input').value)">إرسال ✉️</button>
   </div></div>`,
   leaderboard:()=>`<div class="card"><div id="jalil-lb-box">${renderJalilLBHTML()}</div></div>`,
-  games:()=>`<div class="card center"><h3>🎮 الألعاب والتحديات</h3><p class="mut">قريباً يتم ربط الألعاب لتلعبها مباشرة هنا وتكسب النقاط أنت وابتسام!</p></div>`
+  games:()=>{
+    if(jalilGid){
+      const g = typeof GAMES !== 'undefined' ? GAMES.find(x=>x[0]===jalilGid) : null;
+      const titleText = g ? (g[2] || g[1]) : jalilGid;
+      return `<a class="chip" href="javascript:jalilGid='';renderJalil()">← رجوع للألعاب</a><div class="card"><h2>🎮 ${esc(titleText)}</h2><div id="jalil-gm" style="margin-top:15px;"></div></div>`;
+    }
+    const gamesList = typeof GAMES !== 'undefined' ? GAMES : [];
+    return `<div class="card"><h3>🎮 الألعاب والتحديات</h3><p class="mut" style="margin-bottom:15px;">اختر لعبة والعب لتكسب النقاط وتنافس الأميرة!</p>
+    <div class="bento">
+      ${gamesList.map(g=>`<a class="tile" href="javascript:jalilGid='${g[0]}';renderJalil()"><i>${g[1]}</i><b>${g[2]||g[1]}</b></a>`).join('')}
+    </div></div>`;
+  }
 };
 
 function jalilShell(body){
   const r = jalilRoute || 'home';
   return `<div class="wrap"><header><h1>👑 واجهة الأمير جليل</h1><div class="row"><button class="chip" onclick="sessionStorage.clear(); boot();">خروج · Exit</button></div></header>
-  <nav class="chips">${JALIL_NAV.map(([k,l])=>`<a class="chip ${r===k?'on':''}" href="javascript:jalilRoute='${k}';renderJalil()">${l}</a>`).join('')}</nav>
+  <nav class="chips">${JALIL_NAV.map(([k,l])=>`<a class="chip ${r===k?'on':''}" href="javascript:jalilRoute='${k}';jalilGid='';renderJalil()">${l}</a>`).join('')}</nav>
   ${body}
-  <footer><a href="javascript:setView('admin')">🛡️ لوحة الأدمن</a><a href="javascript:jalilRoute='home';renderJalil()">🏠 الرئيسية</a><p class="mut">🟢 النظام متصل بالسحاب</p></footer></div>`;
+  <footer><a href="javascript:setView('admin')">🛡️ لوحة الأدمن</a><a href="javascript:jalilRoute='home';jalilGid='';renderJalil()">🏠 الرئيسية</a><p class="mut">🟢 النظام متصل بالسحاب</p></footer></div>`;
 }
 
 async function renderJalil(){
@@ -164,6 +175,15 @@ async function renderJalil(){
 
   const viewFn = JV[jalilRoute] || JV.home;
   $('app').innerHTML = jalilShell(viewFn());
+
+  // تشغيل دالة اللعبة إذا كانت مختارة
+  if(jalilRoute === 'games' && jalilGid){
+    const gameObj = typeof GAMES !== 'undefined' ? GAMES.find(x=>x[0]===jalilGid) : null;
+    if(gameObj && typeof gameObj[4] === 'function'){
+      window.CUR = jalilGid;
+      gameObj[4]($('jalil-gm'));
+    }
+  }
 }
 
 window.renderJalil = renderJalil;
