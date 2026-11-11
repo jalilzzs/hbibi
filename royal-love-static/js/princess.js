@@ -167,6 +167,77 @@ function renderLeaderboardHTML(){
   `;
 }
 
+// دمج دوال الألعاب مباشرة هنا لتجنب مشاكل التأخير في التحميل
+async function addGamePoints(points){
+  try {
+    if(typeof Prog !== 'undefined' && Prog.d){
+      Prog.d.love_points = Math.max(0, (Prog.d.love_points || 0) + points);
+      if(typeof Prog.save === 'function') Prog.save();
+    }
+    const role = sessionStorage.role || 'princess';
+    const playerKey = (role === 'admin' || role === 'jalil') ? 'prince' : 'princess';
+    if(cloud() && typeof CFG !== 'undefined'){
+      const K = CFG.SUPABASE_KEY, U = CFG.SUPABASE_URL;
+      const res = await fetch(`${U}/rest/v1/game_scores?player=eq.${playerKey}`, {headers:{apikey:K,Authorization:'Bearer '+K}});
+      const data = await res.json();
+      const currentPoints = (data && data.length > 0) ? (data[0].points || 0) : 0;
+      const newTotal = Math.max(0, currentPoints + points);
+      await fetch(`${U}/rest/v1/game_scores?player=eq.${playerKey}`, {
+        method: 'PATCH',
+        headers: {apikey:K, Authorization:'Bearer '+K, 'Content-Type':'application/json'},
+        body: JSON.stringify({points: newTotal})
+      });
+    }
+  }catch(e){console.error(e);}
+}
+
+const R_g = a => a[Math.random() * a.length | 0], sh_g = a => [...a].sort(() => Math.random() - .5);
+const pts_g = n => { if(n !== 0) addGamePoints(n); return n; };
+const end_g = (el, n, tx) => { el.innerHTML = `<div class="res"><h2>${tx}</h2><p>${n >= 0 ? '+' : ''}${n} 💎</p></div>`; };
+const quiz_g = items => el => {
+  const q = sh_g(typeof items === 'function' ? items() : items).slice(0, 5);
+  let i = 0, s = 0;
+  const go = () => {
+    if(i >= q.length) return end_g(el, pts_g(Math.min(10, s * 2)), s + '/' + q.length);
+    const [a, ...o] = q[i];
+    el.innerHTML = `<h3>${esc(a)}</h3>` + sh_g(o).map(x => `<button class="opt">${esc(x)}</button>`).join('');
+    el.querySelectorAll('.opt').forEach(b => {
+      b.onclick = () => { if(b.textContent === o[0]) s++; i++; go(); };
+    });
+  };
+  go();
+};
+
+const cards_g = (items, p = 1) => el => {
+  const d = () => {
+    el.innerHTML = `<div class="big-card">${esc(R_g(items))}</div><div class="row"><button id="n">🔄</button><button class="gold" id="ok">✅ +${p}</button></div>`;
+    el.querySelector('#n').onclick = d;
+    el.querySelector('#ok').onclick = function() { pts_g(p); this.disabled = true; };
+  };
+  d();
+};
+
+const GAMES = [
+  ['loveq','💕','اختبار الحب','Love Quiz', quiz_g([['من يحب الآخر أكثر؟','نحن متساويان 💞','أنا 😏','أنتِ 😘']])],
+  ['riddle','🧩','ألغاز','Riddles', quiz_g([['شيء يكبر كلما أخذت منه؟','الحفرة','الجبل','البحر'],['يمشي بلا أرجل؟','الوقت','الكرسي','الحجر']])],
+  ['tf','✅','صح أم خطأ','True or False', quiz_g([['الشمس نجم؟','صح','خطأ'],['الحوت سمكة؟','خطأ','صح']])],
+  ['dare','🔥','تحدّي','Daring Cards', cards_g(['أرسلي لي رسالة صوتية 🎙️','ارقصي ٣٠ ثانية 💃','قلّدي ضحكتي 😂'], 3)],
+  ['truth','🤫','صراحة','Truth', cards_g(['ما أول شيء لفت انتباهك فيّ؟','ما أجمل لحظة جمعتنا؟'], 3)],
+  ['hearts','❤️','اصطادي القلوب','Catch Hearts', el => {
+    let n = 0, tm = 10;
+    el.innerHTML = '<b id="hd"></b><div class="arena"><button class="hrt" id="hb">❤️</button></div>';
+    const b = el.querySelector('#hb'), hd = el.querySelector('#hd');
+    const mv = () => { b.style.left = Math.random() * 85 + '%'; b.style.top = Math.random() * 80 + '%'; };
+    const u = () => hd.textContent = `⏱ ${tm} · ${n}`;
+    mv(); u();
+    b.onclick = () => { n++; mv(); };
+    const i = iv(() => {
+      tm--; u();
+      if(tm <= 0) { clearInterval(i); end_g(el, pts_g(Math.min(10, n / 2 | 0)), n + ' 💖'); }
+    }, 1000);
+  }]
+];
+
 let chatTimer = null;
 let lbTimer = null;
 
@@ -184,17 +255,13 @@ baby:()=>{const s=stage(),g=Prog.d.baby_gender;return`<div class="card center"><
 <div class="row"><button class="chip ${g==='girl'?'on':''}" onclick="setBaby('girl')">${t('girl')}</button><button class="chip ${g==='boy'?'on':''}" onclick="setBaby('boy')">${t('boy')}</button></div><input id="bn" value="${esc(Prog.d.baby_name)}" onchange="setBaby('${g}',this.value)"></div>`},
 games:()=>{
   if(gid){
-    const g = (typeof GAMES !== 'undefined' && Array.isArray(GAMES)) ? GAMES.find(x=>x[0]===gid) : null;
+    const g = GAMES.find(x=>x[0]===gid);
     const titleText = g ? (g[2+ix(lang)] || g[1]) : gid;
     return `<a class="chip" href="#/games">${t('back')}</a><div class="card"><h2>🎮 ${esc(titleText)} <small class="mut">💎 <span class="pts">${Prog.d.love_points}</span></small></h2><div id="gm" style="margin-top:15px; min-height:200px;"></div></div>`;
   }
-  const gamesList = (typeof GAMES !== 'undefined' && Array.isArray(GAMES)) ? GAMES : [];
-  if(gamesList.length === 0){
-    return `<p class="center" style="padding:30px;">⚠️ جاري تحميل الألعاب...</p>`;
-  }
   return `<p class="center">💎 <b class="pts">${Prog.d.love_points}</b></p>
   <div class="bento">
-    ${gamesList.map(g=>`<a class="tile" href="#/games/${g[0]}"><i>${g[1]}</i><b>${g[2+ix(lang)]||g[1]}</b></a>`).join('')}
+    ${GAMES.map(g=>`<a class="tile" href="#/games/${g[0]}"><i>${g[1]}</i><b>${g[2+ix(lang)]||g[1]}</b></a>`).join('')}
   </div>`;
 },
 countdown:()=>{const c=cdDays();return`<div class="card center hero"><h2>${esc(C.next_label||'')}</h2>${c==null?`<p>${t('noDate')}</p>`:`<h2 style="font-size:4rem">${Math.max(0,c)}</h2><p>${t('left')}</p>`}</div>`},
@@ -213,7 +280,7 @@ const B={
   reasons(){const r=L('reasons');if($('rb')&&r.length)$('rb').onclick=()=>{if(r.length)$('rs').textContent=R(r).b}},
   games(){
     window.CUR=gid;
-    if(gid && typeof GAMES !== 'undefined' && Array.isArray(GAMES)){
+    if(gid){
       const found = GAMES.find(x=>x[0]===gid);
       const gmEl = $('gm');
       if(found && typeof found[4] === 'function' && gmEl){
