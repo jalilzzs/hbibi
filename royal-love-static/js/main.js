@@ -71,8 +71,14 @@ function boot(){
   }
 }
 
+// تعديل الـ hashchange باش يستجيب لكل الواجهات بما فيها الألعاب عند جليل وابتسام
 window.addEventListener('hashchange', () => {
-  if(sessionStorage.role && sessionStorage.view !== 'admin' && sessionStorage.view !== 'jalil'){
+  if(!sessionStorage.role) return;
+  if(sessionStorage.role === 'admin' || sessionStorage.view === 'admin') return;
+  
+  if(sessionStorage.role === 'jalil' || sessionStorage.view === 'jalil'){
+    if(typeof renderJalil === 'function') renderJalil();
+  } else {
     if(typeof render === 'function') render();
   }
 });
