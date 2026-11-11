@@ -106,7 +106,6 @@ async function sendPrincessMessage(txt){
   }catch(e){alert('❌ خطأ في الإرسال: '+e.message);}
 }
 
-// دالة تتيح لابتسام إرسال منشور أو خاطر لتظهر عند جليل
 async function sendPrincessPost(section, body){
   if(!body || !body.trim() || !cloud()) return;
   try{
@@ -185,14 +184,17 @@ baby:()=>{const s=stage(),g=Prog.d.baby_gender;return`<div class="card center"><
 <div class="row"><button class="chip ${g==='girl'?'on':''}" onclick="setBaby('girl')">${t('girl')}</button><button class="chip ${g==='boy'?'on':''}" onclick="setBaby('boy')">${t('boy')}</button></div><input id="bn" value="${esc(Prog.d.baby_name)}" onchange="setBaby('${g}',this.value)"></div>`},
 games:()=>{
   if(gid){
-    const g = typeof GAMES !== 'undefined' ? GAMES.find(x=>x[0]===gid) : null;
+    const g = (typeof GAMES !== 'undefined' && Array.isArray(GAMES)) ? GAMES.find(x=>x[0]===gid) : null;
     const titleText = g ? (g[2+ix(lang)] || g[1]) : gid;
-    return `<a class="chip" href="#/games">${t('back')}</a><div class="card"><h2>🎮 ${esc(titleText)} <small class="mut">💎 <span class="pts">${Prog.d.love_points}</span></small></h2><div id="gm" style="margin-top:15px;"></div></div>`;
+    return `<a class="chip" href="#/games">${t('back')}</a><div class="card"><h2>🎮 ${esc(titleText)} <small class="mut">💎 <span class="pts">${Prog.d.love_points}</span></small></h2><div id="gm" style="margin-top:15px; min-height:200px;"></div></div>`;
   }
-  const gamesList = typeof GAMES !== 'undefined' ? GAMES : [];
+  const gamesList = (typeof GAMES !== 'undefined' && Array.isArray(GAMES)) ? GAMES : [];
+  if(gamesList.length === 0){
+    return `<p class="center" style="padding:30px;">⚠️ جاري تحميل الألعاب...</p>`;
+  }
   return `<p class="center">💎 <b class="pts">${Prog.d.love_points}</b></p>
   <div class="bento">
-    ${gamesList.map(g=>`<a class="tile" href="#/games/${g[0]}"><i>${g[1]}</i><b>${g[2+ix(lang)]||g[1]}</b>${Prog.d.scores&&Prog.d.scores[g[0]]?`<small>🏅 ${Prog.d.scores[g[0]]}</small>`:''}</a>`).join('')}
+    ${gamesList.map(g=>`<a class="tile" href="#/games/${g[0]}"><i>${g[1]}</i><b>${g[2+ix(lang)]||g[1]}</b></a>`).join('')}
   </div>`;
 },
 countdown:()=>{const c=cdDays();return`<div class="card center hero"><h2>${esc(C.next_label||'')}</h2>${c==null?`<p>${t('noDate')}</p>`:`<h2 style="font-size:4rem">${Math.max(0,c)}</h2><p>${t('left')}</p>`}</div>`},
@@ -206,7 +208,21 @@ chat:()=>`<div class="card"><h3>💬 المحادثة الحية مع الأمي
 leaderboard:()=>`<div class="card"><div id="leaderboard-box">${renderLeaderboardHTML()}</div></div>`};
 
 const setBaby=(g,n)=>{Prog.baby(g,n||$('bn').value);render()},sendMood=m=>{Prog.mood(m);$('ms').textContent=t('sent')};
-const B={reasons(){const r=L('reasons');$('rb').onclick=()=>{if(r.length)$('rs').textContent=R(r).b}},games(){window.CUR=gid;if(gid)GAMES.find(x=>x[0]===gid)[4]($('gm'))}};
+
+const B={
+  reasons(){const r=L('reasons');if($('rb')&&r.length)$('rb').onclick=()=>{if(r.length)$('rs').textContent=R(r).b}},
+  games(){
+    window.CUR=gid;
+    if(gid && typeof GAMES !== 'undefined' && Array.isArray(GAMES)){
+      const found = GAMES.find(x=>x[0]===gid);
+      const gmEl = $('gm');
+      if(found && typeof found[4] === 'function' && gmEl){
+        found[4](gmEl);
+      }
+    }
+  }
+};
+
 Prog.onchange=()=>document.querySelectorAll('.pts').forEach(e=>e.textContent=Prog.d.love_points);
 
 function shell(body){
@@ -222,7 +238,10 @@ async function render(){
   document.documentElement.lang=lang;
   document.documentElement.dir=lang==='ar'?'rtl':'ltr';
   document.title=t('title');
-  const[r,g]=location.hash.slice(2).split('/');route=r||'home';gid=g||'';if(route!=='games')window.CUR='';
+  const hashParts = location.hash.slice(2).split('/');
+  route = hashParts[0] || 'home';
+  gid = hashParts[1] || '';
+  if(route!=='games')window.CUR='';
   
   if(route === 'chat'){
     loadPrincessChat();
@@ -238,8 +257,11 @@ async function render(){
     if(lbTimer){ clearInterval(lbTimer); lbTimer = null; }
   }
 
-  $('app').innerHTML=shell(V[route]?V[route]():V.home());
-  B[route]&&B[route]();
+  const appEl = $('app');
+  if(appEl) appEl.innerHTML = shell(V[route]?V[route]():V.home());
+  
+  if(B[route]) B[route]();
   if(route==='home')iv(()=>{const c=$('clk');c&&(c.textContent=clk())},1000);
 }
+
 function setLang(){lang=lang==='ar'?'en':'ar';localStorage.lang=lang;render()}
