@@ -1,13 +1,11 @@
 // دالة لتحديث نقاط الحب في المتجر المحلي وفي جدول السحاب (لوحة الشرف)
 async function addGamePoints(points){
   try {
-    // 1. تحديث نقاط الحب المحلية للواجهة وعرضها
     if(typeof Prog !== 'undefined' && Prog.d){
       Prog.d.love_points = Math.max(0, (Prog.d.love_points || 0) + points);
       if(typeof Prog.save === 'function') Prog.save();
     }
     
-    // 2. تحديث النقاط في جدول game_scores في سحاب Supabase (حسب دور المستخدم الحالي)
     const role = sessionStorage.role || 'princess';
     const playerKey = (role === 'admin' || role === 'jalil') ? 'prince' : 'princess';
     
@@ -31,9 +29,45 @@ async function addGamePoints(points){
   }
 }
 
+// تعريف دوال المساعدة الأساسية في البداية لتجنب خطأ ReferenceError
+const R = a => a[Math.random() * a.length | 0], sh = a => [...a].sort(() => Math.random() - .5);
+const pts = n => { if(n > 0) { addGamePoints(n); } return n; };
+const end = (el, n, tx) => { el.innerHTML = `<div class="res"><h2>${tx}</h2><p>+${n} 💎</p></div>`; };
+
+// دالة الاختبارات (Quiz) الأساسية
+const quiz = items => el => {
+  const q = sh(typeof items === 'function' ? items() : items).slice(0, 5);
+  let i = 0, s = 0;
+  const go = () => {
+    if(i >= q.length) return end(el, pts(Math.min(10, s * 2)), s + '/' + q.length);
+    const [a, ...o] = q[i];
+    el.innerHTML = `<h3>${esc(a)}</h3>` + sh(o).map(x => `<button class="opt">${esc(x)}</button>`).join('');
+    el.querySelectorAll('.opt').forEach(b => {
+      b.onclick = () => {
+        if(b.textContent === o[0]) s++;
+        i++;
+        go();
+      };
+    });
+  };
+  go();
+};
+
+const cards = (items, p = 1) => el => {
+  const d = () => {
+    el.innerHTML = `<div class="big-card">${esc(R(items))}</div><div class="row"><button id="n">🔄</button><button class="gold" id="ok">✅ +${p}</button></div>`;
+    el.querySelector('#n').onclick = d;
+    el.querySelector('#ok').onclick = function() { pts(p); this.disabled = true; };
+  };
+  d();
+};
+
+const math = () => Array.from({length: 6}, () => { const a = 2 + Math.random() * 18 | 0, b = 2 + Math.random() * 18 | 0; return [`${a} + ${b} = ?`, a + b, a + b + 1, a + b - 2]; });
+const loveQ = () => { const q = ((window.ACTIVE || window.CONTENT).quiz || []).filter(x => x.t && x.b).map(x => [x.t, ...x.b.split('|')]); return q.length ? q : [['من يحب الآخر أكثر؟', 'نحن متساويان 💞', 'أنا 😏', 'أنتِ 😘']]; };
+
 // قائمة العقوبات العشوائية الطريفة عند الخطأ
 const PENALTIES = [
-  "😂 عقاب: ابعت رسالة حب صوتية حالا للشخص الآخر!",
+  "😂 عقاب: ابعت رسالة صوتية حالا للشخص الآخر!",
   "🥺 عقاب: اعترف بثلاث عيوب ظريفة في روحك!",
   "🔥 عقاب: ممنوع تستعمل حرف 'الياء' في الجواب القادم!",
   "👑 عقاب: اعترف بلي الأمير هو الأذك والأسرع!",
@@ -41,7 +75,7 @@ const PENALTIES = [
 ];
 const getRandomPenalty = () => PENALTIES[Math.floor(Math.random() * PENALTIES.length)];
 
-// تعريف الألعاب مع دعم النقاط الموحدة والتخطي والعقوبات
+// تعريف الألعاب بالكامل
 const GAMES = [
   ['loveq','💕','اختبار الحب','Love Quiz', function(el){
     const items = typeof loveQ === 'function' ? loveQ() : [['من يحب الآخر أكثر؟','نحن متساويان 💞','أنا 😏','أنتِ 😘']];
@@ -50,7 +84,7 @@ const GAMES = [
     const go = () => {
       if(i >= q.length) {
         const earned = Math.min(15, s * 3);
-        addGamePoints(earned);
+        pts(earned);
         return end(el, earned, s + '/' + q.length + ' ✨');
       }
       const [a, ...o] = q[i];
@@ -78,7 +112,7 @@ const GAMES = [
           } else {
             const pen = getRandomPenalty();
             if(penaltyEl) { penaltyEl.style.color = '#e74c3c'; penaltyEl.textContent = `❌ خطأ! ${pen}`; }
-            addGamePoints(-3); // عقاب خصم نقاط
+            pts(-3);
             setTimeout(() => { i++; go(); }, 2800);
           }
         };
@@ -88,10 +122,10 @@ const GAMES = [
   }],
 
   ['emoji','🎬','خمّني الفيلم','Guess the Movie', quiz([['🦁👑','الأسد الملك','علاء الدين','بامبي'],['❄️👸','فروزن','سندريلا','مولان'],['🚢💔','تايتانيك','أفاتار','جاسوس'],['🧞‍♂️🪔','علاء الدين','شريك','بامبي']])],
-  ['riddle','🧩','ألغاز','Riddles', quiz([['شيء يكبر كلما أخذت منه؟','الحفرة','الجبل','البحر'],['يمشي بلا أرجل؟','الوقت','الكرسي','الحجر'],['له أسنان ولا يعض؟','المشط','القرش','الأسد'],['كلما زاد نقص؟','العمر','المال','الماء']])],
+  ['riddle','🧩','ألغاز','Riddles', quiz([['شيء يكبر كلما أخذت منه؟','الحفرة','الجبل','البحر'],['يمشي بلا أرجل؟','الوقت','Kالكرسي','الحجر'],['له أسنان ولا يعض؟','المشط','القرش','الأسد'],['كلما زاد نقص؟','العمر','المال','الماء']])],
   ['tf','✅','صح أم خطأ','True or False', quiz([['الشمس نجم؟','صح','خطأ'],['الحوت سمكة؟','خطأ','صح'],['الذهب أخف من الحديد؟','خطأ','صح'],['القمر يدور حول الأرض؟','صح','خطأ']])],
   ['proverb','📖','أكمل المثل','Proverbs', quiz([['الصديق وقت ...','الضيق','الفرح','الراحة'],['من جدّ ...','وجد','نام','ضحك'],['العلم في الصغر كالنقش على ...','الحجر','الماء','الرمل'],['الوقت كالسيف إن لم تقطعه ...','قطعك','كسره','أجله']])],
-  ['math','🔢','حساب سريع','Quick Math', quiz(Array.from({length:6},()=>{const a=2+Math.random()*18|0,b=2+Math.random()*18|0;return[`${a} + ${b} = ?`,a+b,a+b+1,a+b-2]}))],
+  ['math','🔢','حساب سريع','Quick Math', quiz(math)],
   
   ['dare','🔥','تحدّي','Daring Cards', cards(['أرسلي لي رسالة صوتية عن أجمل ما فيّ 🎙️','ارقصي ٣٠ ثانية 💃','قلّدي ضحكتي 😂','اكتبي لي بيت شعر الآن ✍️','أرسلي سيلفي بأجمل ابتسامة 🤳'], 3)],
   ['truth','🤫','صراحة','Truth', cards(['ما أول شيء لفت انتباهك فيّ؟','ما أجمل لحظة جمعتنا؟','متى اشتقتِ لي أكثر؟','ما أكثر عادة عندي تحبينها؟','ما الشيء الذي تخجلين من قوله لي؟'], 3)],
@@ -113,9 +147,7 @@ const GAMES = [
       tm--; u();
       if(tm <= 0) {
         clearInterval(i);
-        const earned = Math.min(10, n / 2 | 0);
-        addGamePoints(earned);
-        end(el, earned, n + ' 💖');
+        end(el, pts(Math.min(10, n / 2 | 0)), n + ' 💖');
       }
     }, 1000);
   }],
@@ -130,9 +162,7 @@ const GAMES = [
       tm--; hd.textContent = `⏱ ${tm} · ${n}`;
       if(tm <= 0) {
         TM.forEach(clearInterval);
-        const earned = Math.min(10, n / 2 | 0);
-        addGamePoints(earned);
-        end(el, earned, n + ' ✨');
+        end(el, pts(Math.min(10, n / 2 | 0)), n + ' ✨');
       }
     }, 1000);
   }],
@@ -149,11 +179,7 @@ const GAMES = [
         mv++; const [a, c] = o;
         if(e[a] === e[c]) {
           bs[a].disabled = bs[c].disabled = true; o = [];
-          if(++m === 8) {
-            const earned = mv < 14 ? 12 : 6;
-            addGamePoints(earned);
-            end(el, earned, mv + ' محاولات ✓');
-          }
+          if(++m === 8) end(el, pts(mv < 14 ? 12 : 6), mv + ' محاولات ✓');
         } else {
           setTimeout(() => { bs[a].textContent = bs[c].textContent = '❔'; o = []; }, 700);
         }
@@ -169,9 +195,7 @@ const GAMES = [
     b.onclick = () => {
       if(!rd) return end(el, 0, '😅 مبكر جداً!');
       const ms = Date.now() - st;
-      const earned = ms < 350 ? 10 : ms < 600 ? 5 : 2;
-      addGamePoints(earned);
-      end(el, earned, ms + ' ms');
+      end(el, pts(ms < 350 ? 10 : ms < 600 ? 5 : 2), ms + ' ms');
     };
   }],
 
@@ -182,16 +206,9 @@ const GAMES = [
     const h = el.querySelector('#h'), i = el.querySelector('#i');
     el.querySelector('#g').onclick = () => {
       const v = +i.value;
-      if(v === n) {
-        const earned = k * 3;
-        addGamePoints(earned);
-        return end(el, earned, '🎯 الرقم صحيح: ' + n);
-      }
+      if(v === n) return end(el, pts(k * 3), '🎯 الرقم صحيح: ' + n);
       k--;
-      if(!k) {
-        addGamePoints(1);
-        return end(el, 1, 'انتهت المحاولات! الرقم كان: ' + n);
-      }
+      if(!k) return end(el, 1, 'انتهت المحاولات! الرقم كان: ' + n);
       h.textContent = (v < n ? '⬆️ اصعد أعلى! ' : '⬇️ انزل أسفل! ') + k + ' محاولات متبقية ❤️';
     };
   }],
@@ -205,11 +222,7 @@ const GAMES = [
       el.querySelectorAll('.cell').forEach(b => b.onclick = () => {
         const m = +b.dataset.i, c = Math.random() * 3 | 0;
         if(m !== c) { (m - c + 3) % 3 === 1 ? s++ : r++; }
-        if(s === 3 || r === 3) {
-          const earned = s === 3 ? 10 : 3;
-          addGamePoints(earned);
-          return end(el, earned, s === 3 ? '🏆 فوز ملكي!' : '💪 حاول مجدداً!');
-        }
+        if(s === 3 || r === 3) return end(el, pts(s === 3 ? 10 : 3), s === 3 ? '🏆 فوز ملكي!' : '💪 حاول مجدداً!');
         go();
       });
     };
@@ -224,11 +237,11 @@ const GAMES = [
         const i = +c.dataset.i;
         if(b[i]) return;
         b[i] = '❤️';
-        if(w('❤️')) { addGamePoints(10); return end(el, 10, '🏆 فوز رائع!'); }
+        if(w('❤️')) return end(el, pts(10), '🏆 فوز رائع!');
         const f = b.map((x, j) => x ? -1 : j).filter(j => j >= 0);
-        if(!f.length) { addGamePoints(3); return end(el, 3, '🤝 تعادل!'); }
+        if(!f.length) return end(el, pts(3), '🤝 تعادل!');
         b[R(f)] = '🖤';
-        if(w('🖤')) { addGamePoints(2); return end(el, 2, '🤖 فاز الذكاء الاصطناعي!'); }
+        if(w('🖤')) return end(el, pts(2), '🤖 فاز الذكاء الاصطناعي!');
         d();
       });
     };
@@ -241,11 +254,7 @@ const GAMES = [
     el.querySelector('#s').onclick = function() {
       this.disabled = 1;
       w.style.transform = `rotate(${720 + Math.random() * 360}deg)`;
-      setTimeout(() => {
-        const earned = 2 + Math.random() * 8 | 0;
-        addGamePoints(earned);
-        end(el, earned, '🎁 مبروك جائزة الحظ!');
-      }, 1900);
+      setTimeout(() => end(el, pts(2 + Math.random() * 8 | 0), '🎁 مبروك جائزة الحظ!'), 1900);
     };
   }],
 
@@ -253,9 +262,7 @@ const GAMES = [
     el.innerHTML = '<div class="big-btn" style="font-size:3rem; text-align:center; margin:15px 0;">🪙</div><div class="grid2"><button class="cell" id="h">👑 تاج</button><button class="cell" id="t">🌹 وردة</button></div>';
     const f = s => {
       const r = +(Math.random() < .5);
-      const earned = (r === s) ? 5 : 1;
-      addGamePoints(earned);
-      end(el, earned, r ? '👑 تاج' : '🌹 وردة');
+      end(el, pts(r === s ? 5 : 1), r ? '👑 تاج' : '🌹 وردة');
     };
     el.querySelector('#h').onclick = () => f(1);
     el.querySelector('#t').onclick = () => f(0);
@@ -273,11 +280,7 @@ const GAMES = [
     };
     bs.forEach((b, k) => b.onclick = () => {
       if(lock) return;
-      if(k !== seq[i]) {
-        const earned = Math.max(2, seq.length - 1);
-        addGamePoints(earned);
-        return end(el, earned, 'انتهت اللعبة! النتيجة: ' + (seq.length - 1));
-      }
+      if(k !== seq[i]) return end(el, pts(Math.max(2, seq.length - 1)), 'انتهت اللعبة! النتيجة: ' + (seq.length - 1));
       if(++i === seq.length) setTimeout(play, 500);
     });
     play();
@@ -288,18 +291,14 @@ const GAMES = [
     el.querySelector('#g').onclick = () => {
       const s = el.querySelector('#a').value + el.querySelector('#b').value;
       const p = [...s].reduce((x, c) => x + c.charCodeAt(0), 0) % 21 + 80;
-      addGamePoints(5);
-      end(el, 5, p + '% 💞 تناغم مذهل');
+      end(el, pts(5), p + '% 💞 تناغم مذهل');
     };
   }],
 
   ['gift','🎁','اختاري هدية','Lucky Gift', el => {
     el.innerHTML = '<div class="grid3">' + '<button class="cell" style="font-size:2rem;">🎁</button>'.repeat(3) + '</div>';
     const p = sh([2, 5, 10]);
-    el.querySelectorAll('.cell').forEach((b, i) => b.onclick = () => {
-      addGamePoints(p[i]);
-      end(el, p[i], '🎁 مفاجأة السعادة!');
-    });
+    el.querySelectorAll('.cell').forEach((b, i) => b.onclick = () => end(el, pts(p[i]), '🎁 مفاجأة السعادة!'));
   }],
 
   ['hilo','📈','أعلى أم أقل','Higher or Lower', el => {
@@ -309,11 +308,7 @@ const GAMES = [
       const f = up => {
         const n = 1 + Math.random() * 12 | 0;
         if(n === c) return go();
-        if((n > c) !== !!up) {
-          const earned = Math.min(12, s * 2);
-          addGamePoints(earned);
-          return end(el, earned, 'انتهت الجولة! الرصيد: ' + s);
-        }
+        if((n > c) !== !!up) return end(el, pts(Math.min(12, s * 2)), 'انتهت الجولة! الرصيد: ' + s);
         c = n; s++; go();
       };
       el.querySelector('#u').onclick = () => f(1);
@@ -326,9 +321,7 @@ const GAMES = [
     el.innerHTML = '<div class="row"><button class="gold big-btn" id="r" style="padding:15px 30px; font-size:1.5rem;">ارمِ النرد 🎲</button></div>';
     el.querySelector('#r').onclick = () => {
       const a = 1 + Math.random() * 6 | 0, b = 1 + Math.random() * 6 | 0;
-      const earned = a > b ? 6 : a === b ? 3 : 1;
-      addGamePoints(earned);
-      end(el, earned, `🎲 النرد: ${a} مقابل ${b}`);
+      end(el, pts(a > b ? 6 : a === b ? 3 : 1), `🎲 النرد: ${a} مقابل ${b}`);
     };
   }]
 ];
