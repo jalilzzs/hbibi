@@ -1,4 +1,6 @@
 let lang=localStorage.lang||'ar',route='home',gid='',err='',gm='code';window.CUR='';let C={};const L=k=>C[k]||[];
+let liveSettings = { battery_level: '100', popup_status: 'none' };
+let settingsTimer = null;
 
 const cloud=()=>!!CFG.SUPABASE_URL&&!/YOUR-/.test(CFG.SUPABASE_URL+CFG.SUPABASE_KEY);
 async function sbFetch(path){
@@ -22,7 +24,12 @@ async function loadPrincessContent(){
         sbFetch('content_items?select=*')
       ]);
       if(settings && Array.isArray(settings)){
-        settings.forEach(s => data[s.key] = s.value);
+        settings.forEach(s => {
+          data[s.key] = s.value;
+          if(s.key === 'battery_level' || s.key === 'popup_status') {
+            liveSettings[s.key] = s.value;
+          }
+        });
       }
       if(items && Array.isArray(items)){
         items.forEach(x => {
@@ -43,6 +50,94 @@ async function loadPrincessContent(){
     data = d || window.CONTENT || data;
   }
   return data;
+}
+
+// دالة لجلب إعدادات البطارية واللوحات بشكل دوري (Real-time polling)
+async function checkLiveSettings(){
+  if(!cloud()) return;
+  try{
+    const settings = await sbFetch('site_settings?select=*');
+    if(settings && Array.isArray(settings)){
+      let changed = false;
+      settings.forEach(s => {
+        if((s.key === 'battery_level' || s.key === 'popup_status') && liveSettings[s.key] !== s.value){
+          liveSettings[s.key] = s.value;
+          changed = true;
+        }
+      });
+      // إذا تغيرت الإعدادات من طرف الأدمن، نعيد تحديث الواجهة فوراً لتظهر اللوحة المطلوبة
+      if(changed) {
+        const overlayBox = $('royal-popup-overlay');
+        if(overlayBox) {
+          overlayBox.outerHTML = renderRoyalPopup();
+        } else {
+          render();
+        }
+      }
+    }
+  }catch(e){console.error('Settings sync error:', e);}
+}
+
+// توليد اللوحات التفاعلية الشفافة بناءً على طاقة البطارية أو تحكم الأمير
+function renderRoyalPopup(){
+  const bat = parseInt(liveSettings.battery_level || '100', 10);
+  const status = liveSettings.popup_status || 'none';
+
+  let popupHTML = '';
+
+  // 1. إذا كانت البطارية 0%
+  if(bat === 0 || status === 'dead_battery') {
+    popupHTML = `
+      <div style="background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); border:2px solid #e74c3c;">
+        <h2 style="color:#e74c3c; font-size:1.8rem; margin-bottom:15px;">🪫 نفاذ الطاقة الملكية</h2>
+        <p style="font-size:1.15rem; line-height:1.6; margin-bottom:20px;">سيتم إغلاق الموقع بواسطة الأمير لأن بطاريته نفدت تماماً... يرجى الانتظار حتى يعيد شحن طاقته الملكية ⚡</p>
+        <div style="font-size:3rem;">👑💤</div>
+      </div>`;
+  } 
+  // 2. إذا كانت البطارية بين 1% و 20%
+  else if(bat > 0 && bat <= 20) {
+    popupHTML = `
+      <div style="background:rgba(20,10,15,0.85); backdrop-filter:blur(8px); border:2px solid #d4af37;">
+        <h2 style="color:#d4af37; font-size:1.6rem; margin-bottom:15px;">⚠️ تحذير طاقة منخفضة (${bat}%)</h2>
+        <p style="font-size:1.1rem; line-height:1.6; margin-bottom:20px;">إذا أردتِ فالأمير متشوق لرسالتك المليئة بالحب بعد تحطيمه 🙏🏽</p>
+        <button class="gold" onclick="location.hash='#/chat'">إرسال رسالة حب الآن 💌</button>
+      </div>`;
+  } 
+  // 3. لوحات تحكم الأدمن الخاصة
+  else if(status === 'no_energy') {
+    popupHTML = `
+      <div style="background:rgba(15,10,20,0.85); backdrop-filter:blur(8px); border:2px solid #d4af37;">
+        <h2 style="color:#d4af37; font-size:1.6rem; margin-bottom:15px;">👑 رسالة خاصة من الأمير</h2>
+        <p style="font-size:1.1rem; line-height:1.6; margin-bottom:20px;">لا للأمير طاقة لاسعادك... ربما حان دورك يا أميرة لإسعاده اليوم 💕</p>
+        <button class="gold" onclick="$('royal-popup-overlay').style.display='none'">حسناً فهمت 🙏🏽</button>
+      </div>`;
+  }
+  else if(status === 'shame') {
+    popupHTML = `
+      <div style="background:rgba(25,10,10,0.85); backdrop-filter:blur(8px); border:2px solid #e74c3c;">
+        <h2 style="color:#e74c3c; font-size:1.6rem; margin-bottom:15px;">🧐 عتاب ملكي</h2>
+        <p style="font-size:1.1rem; line-height:1.6; margin-bottom:20px;">ألن تخجلي على نفسك؟ كل هذا من أجلك وأنتِ غارقة في الصمت! 🥺</p>
+        <button class="gold" onclick="location.hash='#/chat'">اعتذري للأمير فوراً 💬</button>
+      </div>`;
+  }
+  else if(status === 'out_of_service') {
+    popupHTML = `
+      <div style="background:rgba(10,10,10,0.9); backdrop-filter:blur(8px); border:2px solid #7f8c8d;">
+        <h2 style="color:#bdc3c7; font-size:1.6rem; margin-bottom:15px;">🌙 خارج الخدمة</h2>
+        <p style="font-size:1.1rem; line-height:1.6; margin-bottom:20px;">الموقع خارج الخدمة حالياً، اسألي الأمير عن أحواله وما يدور في ذهنه...</p>
+        <button class="gold" onclick="location.hash='#/chat'">السؤال عن الأمير 💬</button>
+      </div>`;
+  }
+
+  if(!popupHTML) return '';
+
+  return `
+    <div id="royal-popup-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; animation: fadeIn 0.3s ease;">
+      <div style="max-width:420px; width:100%; padding:25px; border-radius:16px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.5); color:#fff; position:relative;">
+        ${popupHTML}
+      </div>
+    </div>
+  `;
 }
 
 const D={title:['عالم الأميرة إبتسام','Princess Ibtissam’s World'],gateT:['صاحبة الجلالة الأميرة إبتسام','Her Majesty Princess Ibtissam'],code:['🔑 الرمز','🔑 Code'],face:['📸 الوجه','📸 Face'],ph:['الرمز الملكي','Royal passcode'],enter:['دخول','Enter'],wrong:['رمز خاطئ','Wrong code'],exit:['خروج','Exit'],
@@ -167,7 +262,6 @@ function renderLeaderboardHTML(){
   `;
 }
 
-// دمج دوال الألعاب مباشرة هنا لتجنب مشاكل التأخير في التحميل
 async function addGamePoints(points){
   try {
     if(typeof Prog !== 'undefined' && Prog.d){
@@ -293,7 +387,14 @@ const B={
 Prog.onchange=()=>document.querySelectorAll('.pts').forEach(e=>e.textContent=Prog.d.love_points);
 
 function shell(body){
-  return`<div class="wrap"><header><h1>👑 ${t('title')}</h1><div class="row"><button class="chip" onclick="setLang()">${lang==='ar'?'EN':'عربي'}</button><button class="chip" onclick="logout()">${t('exit')}</button></div></header>
+  // مؤشر البطارية الملكية يظهر في الهيدر
+  const bat = parseInt(liveSettings.battery_level || '100', 10);
+  const batColor = bat <= 20 ? '#e74c3c' : '#2ecc71';
+
+  return`${renderRoyalPopup()}
+<div class="wrap"><header><h1>👑 ${t('title')}</h1><div class="row">
+<span class="chip" style="border-color:${batColor}; color:${batColor};">🔋 ${bat}%</span>
+<button class="chip" onclick="setLang()">${lang==='ar'?'EN':'عربي'}</button><button class="chip" onclick="logout()">${t('exit')}</button></div></header>
 ${Prog.err?`<div class="card err" style="padding:8px;font-size:.85rem">⚠️ ${esc(Prog.err)}</div>`:''}<nav class="chips">${NAV.map(([k,i])=>`<a class="chip ${route===k?'on':''}" href="#/${k}">${i} ${t(k)}</a>`).join('')}</nav>${body}
 <footer><a href="#/home">🏠 ${t('home')}</a><a href="#/games">🎮 ${t('games')}</a><a href="#/notes">💌 ${t('notes')}</a><p class="mut">${cloud()?t('cloud'):t('loc')}</p></footer></div>`;
 }
@@ -322,6 +423,11 @@ async function render(){
     if(!lbTimer) lbTimer = setInterval(loadLeaderboardData, 4000);
   } else {
     if(lbTimer){ clearInterval(lbTimer); lbTimer = null; }
+  }
+
+  // تفعيل الاستماع الفوري لتحديثات البطارية واللوحات كل 3 ثوانٍ
+  if(!settingsTimer){
+    settingsTimer = setInterval(checkLiveSettings, 3000);
   }
 
   const appEl = $('app');
