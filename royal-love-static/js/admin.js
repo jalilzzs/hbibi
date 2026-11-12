@@ -3,6 +3,7 @@ const FL={t:'العنوان · Title',b:'النص · Text',u:'رابط أو مس
 const EMPTY={start_date:'2024-01-01',next_date:'',next_label:'موعدنا القادم'};SEC.forEach(s=>EMPTY[s[0]]=[]);
 let AC=null,tab='content',msg='',FILES=[],ups=[],chatMessages=[];
 let chatInterval=null, adminLbTimer=null, adminScoreData=[];
+let siteSettings = { battery_level: '100', popup_status: 'none' };
 
 const isCloud=()=>!!CFG.SUPABASE_URL&&!/YOUR-/.test(CFG.SUPABASE_URL+CFG.SUPABASE_KEY);
 const safe=n=>n.replace(/[^\w.\-]/g,'_');
@@ -24,7 +25,14 @@ async function loadFromDB(){
     const settings = await sbReq('site_settings?select=*');
     const items = await sbReq('content_items?select=*');
     let data = Object.assign({}, EMPTY);
-    if(settings) settings.forEach(s=>data[s.key]=s.value);
+    if(settings) {
+      settings.forEach(s=> {
+        data[s.key] = s.value;
+        if(s.key === 'battery_level' || s.key === 'popup_status') {
+          siteSettings[s.key] = s.value;
+        }
+      });
+    }
     SEC.forEach(([k])=>{
       data[k] = items.filter(x=>x.section===k).map(x=>({t:x.title||'',b:x.body||'',u:x.media_url||''}));
     });
@@ -32,6 +40,19 @@ async function loadFromDB(){
   }catch(e){
     msg='⚠️ Failed to load from DB: '+e.message;
     AC = Object.assign({}, EMPTY, JSON.parse(JSON.stringify(window.CONTENT||{})));
+  }
+}
+
+// تحديث إعدادات البطارية أو اللوحات في السحاب فوراً
+async function updateSiteSetting(key, val){
+  try{
+    siteSettings[key] = val;
+    await sbReq(`site_settings?key=eq.${key}`,'PATCH',{value: String(val)});
+    msg = `✅ تم تحديث (${key}) بنجاح!`;
+    drawAdmin();
+  }catch(e){
+    msg = '❌ خطأ في التحديث: ' + e.message;
+    drawAdmin();
   }
 }
 
@@ -153,7 +174,7 @@ async function saveToCloud(){
     SEC.forEach(([k])=>{
       if(AC[k] && AC[k].length){
         AC[k].forEach(x=>{
-          bulkRows.push({section:k, title:x.t||'', body:x.b||'', media_url:x.u||''});
+          bulkRows.push({section:k, title:x.title||'', body:x.body||'', media_url:x.media_url||''}); // تم التصحيح للتوافق
         });
       }
     });
@@ -188,17 +209,47 @@ function renderChatList(){
 const T={
 content:()=>`<div class="card"><h3>⚙️ عام · General</h3><label>معًا منذ · Together since<input type="date" value="${esc(AC.start_date)}" oninput="AC.start_date=this.value"></label>
 <label>الموعد القادم · Next date<input type="date" value="${esc(AC.next_date)}" oninput="AC.next_date=this.value"></label><label>عنوان الموعد · Label<input dir="auto" value="${esc(AC.next_label)}" oninput="AC.next_label=this.value"></label></div>
+
+<!-- قسم التحكم الملكي في البطارية واللوحات -->
+<div class="card" style="border: 1px solid rgba(212,175,55,0.4); background: rgba(212,175,55,0.05);">
+  <h3>🔋 لوحة التحكم الملكية والبطارية</h3>
+  <p class="mut" style="font-size:0.9rem; margin-bottom:15px;">تحكم في طاقة الموقع واللوحات التفاعلية التي تظهر للأميرة ابتسام فلحظتها:</p>
+  
+  <label>نسبة البطارية الحاليّة (${siteSettings.battery_level}%):
+    <input type="range" min="0" max="100" value="${esc(siteSettings.battery_level)}" oninput="updateSiteSetting('battery_level', this.value)" style="width:100%; accent-color:#d4af37; margin:10px 0;">
+  </label>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;">
+    <button class="chip" onclick="updateSiteSetting('battery_level', 0)">🪫 تفريغ كامل (0%)</button>
+    <button class="chip" onclick="updateSiteSetting('battery_level', 20)">⚡ ضبط على (20%)</button>
+    <button class="chip" onclick="updateSiteSetting('battery_level', 100)">🔋 شحن كامل (100%)</button>
+  </div>
+
+  <hr style="border-color:rgba(255,255,255,0.1); margin:15px 0;">
+
+  <h4 style="margin-bottom:10px;">🛡️ اللوحات الخاصة والرسائل المنبثقة (Popups):</h4>
+  <div style="display:flex; flex-direction:column; gap:8px;">
+    <button class="chip ${siteSettings.popup_status==='none'?'on':''}" onclick="updateSiteSetting('popup_status', 'none')">✨ الوضع الطبيعي (إخفاء الكل)</button>
+    <button class="chip ${siteSettings.popup_status==='no_energy'?'on':''}" onclick="updateSiteSetting('popup_status', 'no_energy')">👑 "لا للأمير طاقة لإسعادك..."</button>
+    <button class="chip ${siteSettings.popup_status==='shame'?'on':''}" onclick="updateSiteSetting('popup_status', 'shame')">🧐 "ألن تخجلي على نفسك؟ كل هذا من أجلك"</button>
+    <button class="chip ${siteSettings.popup_status==='out_of_service'?'on':''}" onclick="updateSiteSetting('popup_status', 'out_of_service')">🌙 "الموقع خارج الخدمة حالياً، اسألي الأمير عن أحواله"</button>
+  </div>
+</div>
+
 ${SEC.map(([k,ic,lb,fs])=>`<div class="card"><h3>${ic} ${lb} (${(AC[k]||[]).length})</h3>${(AC[k]||[]).map((x,i)=>`<div class="item">${fs.map(f=>fld(k,i,f,x[f]||'',k==='quiz')).join('')}<button onclick="del('${k}',${i})">🗑</button></div>`).join('')}<button class="gold" onclick="add('${k}')">➕</button></div>`).join('')}
 <div class="card center"><button class="gold" onclick="saveToCloud()">☁️ حفظ وإرسال إلى السحاب · Save to Cloud</button><p class="mut">${esc(msg)}</p><button onclick="initAdmin()">↺ إعادة تحميل · Refresh</button></div>`,
+
 media:()=>`<div class="card"><h3>🖼️ Supabase Storage: ${isCloud()?'ON':'OFF'}</h3>${isCloud()?`<input type="file" multiple accept="audio/*,image/*" onchange="upMany(this.files)"><p class="err">${esc(msg)}</p>`:'<p class="mut">Not configured.</p>'}
 ${ups.map(u=>`<div class="item"><small>${esc(u)}</small><button onclick="navigator.clipboard.writeText('${esc(u)}')">📋 Copy</button></div>`).join('')}</div>`,
+
 chat:()=>`<div class="card"><h3>💬 المحادثة الحية مع الأميرة · Live Chat</h3>
 <div id="chat-box-content" style="max-height:350px; overflow-y:auto; margin-bottom:15px; padding-right:5px;">${renderChatList()}</div>
 <div style="display:flex; gap:10px;">
   <input id="chat-input" dir="auto" type="text" placeholder="اكتب رسالة إلى الأميرة..." style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.2); color:#fff;" onkeydown="if(event.key==='Enter') sendAdminMessage(this.value)">
   <button class="gold" onclick="sendAdminMessage($('chat-input').value)">إرسال ✉️</button>
 </div></div>`,
+
 leaderboard:()=>`<div class="card"><div id="admin-leaderboard-box">${renderAdminLeaderboardHTML()}</div></div>`,
+
 guide:()=>`<div class="card pre"><h3>📘 Cloud Sync, Chat & Leaderboard Active</h3>1) Edit content freely in ✍️ Content.
 2) Click ☁️ <b>Save to Cloud</b>.
 3) Chat live with the Princess in 💬 الشات المباشر.
@@ -240,3 +291,4 @@ async function initAdmin(){
 window.drawAdmin = drawAdmin;
 window.initAdmin = initAdmin;
 window.updateScore = updateScore;
+window.updateSiteSetting = updateSiteSetting;
